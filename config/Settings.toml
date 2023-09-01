@@ -1,0 +1,28 @@
+log_level = "info"
+
+[database]
+host = "localhost"
+user = "postgres"
+password = "wow"
+dbname = "blockchain"
+# Optional field to configure a timeout if database connection 
+# fails.
+connection_timeout = 20
+
+
+[server]
+serve_at = "0.0.0.0"
+port = 30303
+
+[indexer]
+tendermint_addr = "127.0.0.1"
+port = 26657
+
+[jaeger]
+enable = false
+host = "localhost"
+port = 6831
+
+[prometheus]
+host = "0.0.0.0"
+port = 9000

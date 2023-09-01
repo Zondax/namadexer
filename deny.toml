@@ -1,0 +1,10 @@
+[advisories]
+vulnerability = "deny"
+unmaintained = "deny"
+notice = "deny"
+unsound = "deny"
+ignore = [
+    # A security advisory for libsec256k1 
+    "RUSTSEC-2021-0076",
+]
+

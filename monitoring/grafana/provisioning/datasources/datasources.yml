@@ -1,0 +1,14 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    # url: prometheus:9090
+    # as we are using network mode host 
+    # in docker compose, lets use localhost 
+    # as service name
+    url: http://localhost:9090
+    isDefault: true
+
+

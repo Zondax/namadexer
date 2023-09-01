@@ -1,0 +1,21 @@
+scrape_configs:
+
+  - job_name: namada_indexer_metrics
+    scrape_interval: 5s
+    static_configs:
+      # the setting below works just fine in windows and macOS,
+      # for linux, it is required to set the mode= host in docker-compose
+      - targets: ['host.docker.internal:9000']
+
+  - job_name: cadvisor
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+# rule_files:
+#   - 'rules.yml'
+
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']

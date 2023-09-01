@@ -1,0 +1,40 @@
+version: '3'
+services:
+  postgres:
+    image: postgres:14
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: wow
+      POSTGRES_DB: blockchain 
+    ports:
+      - "5433:5432"
+
+  indexer:
+    build: ../.
+    container_name: indexer
+    environment:
+      - RUST_LOG="namada_prototype=debug"
+      - INDEXER_CONFIG_PATH=/app/config/Settings.toml
+    volumes:
+      - ../config:/app/config
+      - ${PWD}/checksums.json:/app/checksums.json
+    depends_on:
+      - postgres
+    command: ["/bin/bash", "-c", " /usr/local/bin/indexer"]
+
+  server:
+    build: ../.
+    container_name: server
+    environment:
+      - RUST_LOG="namada_prototype=debug"
+      - INDEXER_CONFIG_PATH=/app/config/Settings.toml
+    volumes:
+       - ../config:/app/config
+       - ${PWD}/checksums.json:/app/checksums.json
+    ports:
+      - "30303:30303"
+    depends_on:
+      - postgres
+      - indexer
+    command: ["/bin/bash", "-c", "/usr/local/bin/server"]
