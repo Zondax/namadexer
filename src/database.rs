@@ -28,7 +28,7 @@ const DATABASE_TIMEOUT: u64 = 60;
 
 #[derive(Clone)]
 pub struct Database {
-    postgres_client: Arc<PgPool>,
+    pool: Arc<PgPool>,
 }
 
 impl Database {
@@ -51,12 +51,18 @@ impl Database {
             .await?;
 
         Ok(Database {
-            postgres_client: Arc::new(pool),
+            pool: Arc::new(pool),
         })
     }
 
+    pub fn with_pool(pool: PgPool) -> Self {
+        Self {
+            pool: Arc::new(pool),
+        }
+    }
+
     pub async fn transaction<'a>(&self) -> Result<sqlx::Transaction<'a, sqlx::Postgres>, Error> {
-        self.postgres_client.begin().await.map_err(Error::from)
+        self.pool.begin().await.map_err(Error::from)
     }
 
     /// Create required tables in the database.
@@ -97,7 +103,7 @@ impl Database {
                 commit_block_id_parts_header_hash BYTEA
             );",
         )
-        .execute(&*self.postgres_client)
+        .execute(&*self.pool)
         .await?;
 
         query(
@@ -109,7 +115,7 @@ impl Database {
                 data BYTEA
             );",
         )
-        .execute(&*self.postgres_client)
+        .execute(&*self.pool)
         .await?;
 
         query(
@@ -122,7 +128,7 @@ impl Database {
                 validator_power TEXT NOT NULL
             );",
         )
-        .execute(&*self.postgres_client)
+        .execute(&*self.pool)
         .await?;
 
         query(
@@ -136,7 +142,7 @@ impl Database {
                 shielded BYTEA
             );",
         )
-        .execute(&*self.postgres_client)
+        .execute(&*self.pool)
         .await?;
 
         query(
@@ -148,7 +154,7 @@ impl Database {
                 bond BOOL NOT NULL
             );",
         )
-        .execute(&*self.postgres_client)
+        .execute(&*self.pool)
         .await?;
 
         Ok(())
@@ -637,43 +643,43 @@ impl Database {
                 ALTER TABLE blocks ADD CONSTRAINT pk_block_id PRIMARY KEY (block_id);
             ",
         )
-        .execute(&*self.postgres_client)
+        .execute(&*self.pool)
         .await?;
 
         query("CREATE UNIQUE INDEX ux_header_height ON blocks (header_height);")
-            .execute(&*self.postgres_client)
+            .execute(&*self.pool)
             .await?;
 
         query("ALTER TABLE transactions ADD CONSTRAINT pk_hash PRIMARY KEY (hash);")
-            .execute(&*self.postgres_client)
+            .execute(&*self.pool)
             .await?;
 
         query("ALTER TABLE transactions ADD CONSTRAINT fk_block_id FOREIGN KEY (block_id) REFERENCES blocks (block_id);")
-            .execute(&*self.postgres_client)
+            .execute(&*self.pool)
             .await?;
 
         query("ALTER TABLE tx_transfer ADD CONSTRAINT pk_tx_id_transfer PRIMARY KEY (tx_id);")
-            .execute(&*self.postgres_client)
+            .execute(&*self.pool)
             .await?;
 
         query("CREATE INDEX x_source_transfer ON tx_transfer USING HASH (source);")
-            .execute(&*self.postgres_client)
+            .execute(&*self.pool)
             .await?;
 
         query("CREATE INDEX x_target_transfer ON tx_transfer USING HASH (target);")
-            .execute(&*self.postgres_client)
+            .execute(&*self.pool)
             .await?;
 
         query("ALTER TABLE tx_bond ADD CONSTRAINT pk_tx_id_bond PRIMARY KEY (tx_id);")
-            .execute(&*self.postgres_client)
+            .execute(&*self.pool)
             .await?;
 
         query("CREATE INDEX x_validator_bond ON tx_bond USING HASH (validator);")
-            .execute(&*self.postgres_client)
+            .execute(&*self.pool)
             .await?;
 
         query("CREATE INDEX x_source_bond ON tx_bond USING HASH (source);")
-            .execute(&*self.postgres_client)
+            .execute(&*self.pool)
             .await?;
 
         Ok(())
@@ -685,7 +691,7 @@ impl Database {
         let str = format!("SELECT * FROM {BLOCKS_TABLE_NAME} WHERE block_id=$1");
         query(&str)
             .bind(block_id)
-            .fetch_optional(&*self.postgres_client)
+            .fetch_optional(&*self.pool)
             .await
             .map_err(Error::from)
     }
@@ -696,7 +702,7 @@ impl Database {
         let str = format!("SELECT * FROM {BLOCKS_TABLE_NAME} WHERE header_height={block_height}");
 
         query(&str)
-            .fetch_optional(&*self.postgres_client)
+            .fetch_optional(&*self.pool)
             .await
             .map_err(Error::from)
     }
@@ -708,7 +714,7 @@ impl Database {
 
         // use query_one as the row matching max height is unique.
         query(&str)
-            .fetch_one(&*self.postgres_client)
+            .fetch_one(&*self.pool)
             .await
             .map_err(Error::from)
     }
@@ -720,7 +726,7 @@ impl Database {
 
         // use query_one as the row matching max height is unique.
         query(&str)
-            .fetch_one(&*self.postgres_client)
+            .fetch_one(&*self.pool)
             .await
             .map_err(Error::from)
     }
@@ -733,7 +739,7 @@ impl Database {
 
         query(&str)
             .bind(hash)
-            .fetch_optional(&*self.postgres_client)
+            .fetch_optional(&*self.pool)
             .await
             .map_err(Error::from)
     }
@@ -746,7 +752,7 @@ impl Database {
 
         query(&str)
             .bind(hash)
-            .fetch_all(&*self.postgres_client)
+            .fetch_all(&*self.pool)
             .await
             .map_err(Error::from)
     }
@@ -759,8 +765,12 @@ impl Database {
         );
 
         query(&str)
-            .fetch_all(&*self.postgres_client)
+            .fetch_all(&*self.pool)
             .await
             .map_err(Error::from)
+    }
+
+    pub fn pool(&self) -> &PgPool {
+        self.pool.as_ref()
     }
 }
