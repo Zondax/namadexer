@@ -67,3 +67,7 @@ prometheus = ["metrics-exporter-prometheus", "axum-prometheus"]
 [[bench]]
 name = "save_blocks_bench"
 harness = false
+
+[[bench]]
+name = "get_block_bench"
+harness = false
