@@ -47,7 +47,6 @@ metrics-exporter-prometheus = {version = "0.12.1", optional = true}
 tendermint = "0.33.0"
 tendermint-rpc = { version = "0.33.0", features = ["http-client"], default-features = false}
 tendermint-proto = "0.33.0"
-criterion = { version = "0.5.1", features = ["html_reports"] }
 
 [patch.crates-io]
 borsh = {git = "https://github.com/heliaxdev/borsh-rs.git", rev = "cd5223e5103c4f139e0c54cf8259b7ec5ec4073a"}
