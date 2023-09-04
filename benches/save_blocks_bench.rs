@@ -5,7 +5,7 @@ use tendermint::block::Height;
 
 mod utils;
 
-const DATABASE_NAME: &str = "bench_db";
+const DATABASE_NAME: &str = "save_blocks_db";
 
 fn configure_criterion() -> Criterion {
     Criterion::default().sample_size(10).noise_threshold(0.05) // 5% noise threshold
@@ -14,7 +14,7 @@ fn configure_criterion() -> Criterion {
 fn save_blocks_benchmark(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
 
-    let bench_db = rt.block_on(async {
+    let save_blocks_db = rt.block_on(async {
         // get helper database to create/destroy a new db used for this specific benchmark
         let helper_db = utils::helper_db().await;
 
@@ -46,7 +46,7 @@ fn save_blocks_benchmark(c: &mut Criterion) {
                     b
                 });
 
-                utils::save_blocks(&bench_db, iter, &checksums_map).await
+                utils::save_blocks(&save_blocks_db, iter, &checksums_map).await
             });
         });
     });
