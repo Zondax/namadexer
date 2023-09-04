@@ -38,6 +38,9 @@ run_indexer: download-checksum
 run_server: download-checksum
 	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" RUST_LOG="namada_prototype=info" cargo r --release  --bin server --features prometheus
 
+benchmarks: download-checksum 
+	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" cargo bench 
+
 compose:
 	docker compose -f contrib/docker-compose.yaml up
 
