@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use namada_prototype::BlockInfo;
-use namada_prototype::{utils::load_checksums, Database};
+use namadexer::BlockInfo;
+use namadexer::{utils::load_checksums, Database};
 use sqlx::Row;
 use std::convert::TryFrom;
 

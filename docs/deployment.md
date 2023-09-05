@@ -20,7 +20,7 @@ services:
     build: ../.
     container_name: indexer
     environment:
-      - RUST_LOG="namada_prototype=debug"
+      - RUST_LOG="namadexer=debug"
       - INDEXER_CONFIG_PATH=/app/config/Settings.toml
     volumes:
       - ../config:/app/config
@@ -33,7 +33,7 @@ services:
     build: ../.
     container_name: server
     environment:
-      - RUST_LOG="namada_prototype=debug"
+      - RUST_LOG="namadexer=debug"
       - INDEXER_CONFIG_PATH=/app/config/Settings.toml
     volumes:
        - ../config:/app/config

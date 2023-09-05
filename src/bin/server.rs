@@ -1,8 +1,8 @@
-use namada_prototype::setup_logging;
-use namada_prototype::start_server;
-use namada_prototype::Database;
-use namada_prototype::Error;
-use namada_prototype::Settings;
+use namadexer::setup_logging;
+use namadexer::start_server;
+use namadexer::Database;
+use namadexer::Error;
+use namadexer::Settings;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() -> Result<(), Error> {
