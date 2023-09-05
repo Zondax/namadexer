@@ -645,6 +645,10 @@ impl Database {
             .execute(&*self.pool)
             .await?;
 
+        query("ALTER TABLE tx_bridge_pool ADD CONSTRAINT pk_tx_id_bridge PRIMARY KEY (tx_id);")
+            .execute(&*self.pool)
+            .await?;
+
         query("CREATE INDEX x_validator_bond ON tx_bond USING HASH (validator);")
             .execute(&*self.pool)
             .await?;
