@@ -2,7 +2,7 @@
 FROM rustlang/rust:nightly as builder
 
 WORKDIR /usr/src/namada-prototype
-COPY .. .
+COPY . .
 # We need a specific protoc version
 RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.16.3/protoc-3.16.3-linux-x86_64.zip
 RUN unzip protoc-3.16.3-linux-x86_64.zip -d ./protoc
