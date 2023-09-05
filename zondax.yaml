@@ -1,0 +1,4 @@
+projectName: namadexer
+templates:
+  - template: templates/earthly-dockerfile
+  - template: templates/publish-earthly
