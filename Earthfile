@@ -47,7 +47,7 @@ PUBLISH_WITH_FLEXTAGS:
     ARG EARTHLY_GIT_TAG
 
     ARG --required EARTHLY_GIT_BRANCH
-    ARG GIT_BRANCH=$(echo ${EARTHLY_GIT_BRANCH////-})
+    ARG GIT_BRANCH=$(echo "$EARTHLY_GIT_BRANCH" | sed 's/\//-/g')
 
     WAIT
         # This will detect there is already a tag (:) and will use a dash - instead
