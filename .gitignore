@@ -4,3 +4,4 @@ protoc/*
 *.zip.*
 *.zip
 /monitoring/grafana/data
+checksums.*

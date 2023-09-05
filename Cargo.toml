@@ -55,8 +55,18 @@ borsh-derive-internal = {git = "https://github.com/heliaxdev/borsh-rs.git", rev 
 borsh-schema-derive-internal = {git = "https://github.com/heliaxdev/borsh-rs.git", rev = "cd5223e5103c4f139e0c54cf8259b7ec5ec4073a"}
 
 [dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports", "tokio", "async_futures"] }
 httpc-test = "0.1.4"
+
 
 [features]
 default = []
 prometheus = ["metrics-exporter-prometheus", "axum-prometheus"]
+
+[[bench]]
+name = "save_blocks_bench"
+harness = false
+
+[[bench]]
+name = "get_block_bench"
+harness = false
