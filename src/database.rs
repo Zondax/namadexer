@@ -2,8 +2,7 @@ use crate::{config::DatabaseConfig, error::Error, utils};
 use borsh::de::BorshDeserialize;
 
 use namada::proto;
-use namada::types::transaction::TxType;
-use namada::types::{token, transaction};
+use namada::types::{eth_bridge_pool::PendingTransfer, token, transaction, transaction::TxType};
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::{query, QueryBuilder, Transaction};
 use std::collections::HashMap;
@@ -15,7 +14,9 @@ use tendermint_proto::types::EvidenceList as RawEvidenceList;
 use tracing::{info, instrument};
 
 use crate::{
-    DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_EVDS_DURATION, DB_SAVE_TXS_DURATION,
+    BLOCK_TABLE, DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_EVDS_DURATION,
+    DB_SAVE_TXS_DURATION, EVIDENCES_TABLE, TRANSACTIONS_TABLE, TX_BOND_TABLE, TX_BRIDGE_POOL_TABLE,
+    TX_TRANSFER_TABLE,
 };
 
 use metrics::{histogram, increment_counter};
@@ -76,86 +77,19 @@ impl Database {
     pub async fn create_tables(&self) -> Result<(), Error> {
         info!("Creating tables if doesn't exist");
 
-        query(
-            "CREATE TABLE IF NOT EXISTS blocks (
-                block_id BYTEA NOT NULL,
-                header_version_app INTEGER NOT NULL,
-                header_version_block INTEGER NOT NULL,
-                header_chain_id TEXT NOT NULL,
-                header_height INTEGER NOT NULL,
-                header_time TEXT NOT NULL,
-                header_last_block_id_hash BYTEA,
-                header_last_block_id_parts_header_total INTEGER,
-                header_last_block_id_parts_header_hash BYTEA,
-                header_last_commit_hash BYTEA,
-                header_data_hash BYTEA,
-                header_validators_hash BYTEA NOT NULL,
-                header_next_validators_hash BYTEA NOT NULL,
-                header_consensus_hash BYTEA NOT NULL,
-                header_app_hash TEXT NOT NULL,
-                header_last_results_hash BYTEA,
-                header_evidence_hash BYTEA,
-                header_proposer_address TEXT NOT NULL,
-                commit_height INTEGER,
-                commit_round INTEGER,
-                commit_block_id_hash BYTEA,
-                commit_block_id_parts_header_total INTEGER,
-                commit_block_id_parts_header_hash BYTEA
-            );",
-        )
-        .execute(&*self.pool)
-        .await?;
+        query(BLOCK_TABLE).execute(&*self.pool).await?;
 
-        query(
-            "CREATE TABLE IF NOT EXISTS transactions (
-                hash BYTEA NOT NULL,
-                block_id BYTEA NOT NULL,
-                tx_type TEXT NOT NULL,
-                code BYTEA,
-                data BYTEA
-            );",
-        )
-        .execute(&*self.pool)
-        .await?;
+        query(TRANSACTIONS_TABLE).execute(&*self.pool).await?;
 
-        query(
-            "CREATE TABLE IF NOT EXISTS evidences (
-                block_id BYTEA NOT NULL,
-                height INTEGER,
-                time TEXT,
-                address BYTEA,
-                total_voting_power TEXT NOT NULL,
-                validator_power TEXT NOT NULL
-            );",
-        )
-        .execute(&*self.pool)
-        .await?;
+        query(EVIDENCES_TABLE).execute(&*self.pool).await?;
 
-        query(
-            "CREATE TABLE IF NOT EXISTS tx_transfer (
-                tx_id BYTEA NOT NULL,
-                source TEXT NOT NULL,
-                target TEXT NOT NULL,
-                token TEXT NOT NULL,
-                amount TEXT NOT NULL,
-                key TEXT,
-                shielded BYTEA
-            );",
-        )
-        .execute(&*self.pool)
-        .await?;
+        query(TX_TRANSFER_TABLE).execute(&*self.pool).await?;
 
-        query(
-            "CREATE TABLE IF NOT EXISTS tx_bond (
-                tx_id BYTEA NOT NULL,
-                validator TEXT NOT NULL,
-                amount TEXT NOT NULL,
-                source TEXT,
-                bond BOOL NOT NULL
-            );",
-        )
-        .execute(&*self.pool)
-        .await?;
+        query(TX_BOND_TABLE).execute(&*self.pool).await?;
+
+        query(TX_BOND_TABLE).execute(&*self.pool).await?;
+
+        query(TX_BRIDGE_POOL_TABLE).execute(&*self.pool).await?;
 
         Ok(())
     }
@@ -445,6 +379,7 @@ impl Database {
         checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
     ) -> Result<(), Error> {
+        // use for metrics
         let instant = tokio::time::Instant::now();
 
         if txs.is_empty() {
@@ -499,6 +434,7 @@ impl Database {
                 // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
                 match type_tx.as_str() {
                     "tx_transfer" => {
+                        info!("Saving tx_transfer");
                         let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let transfer = token::Transfer::try_from_slice(&data[..])?;
 
@@ -528,6 +464,7 @@ impl Database {
                         query.execute(&mut *sqlx_tx).await?;
                     }
                     "tx_bond" => {
+                        info!("Saving tx_bond");
                         let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let bond = transaction::pos::Bond::try_from_slice(&data[..])?;
 
@@ -553,6 +490,7 @@ impl Database {
                         query.execute(&mut *sqlx_tx).await?;
                     }
                     "tx_unbond" => {
+                        info!("Saving tx_unbond");
                         let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let unbond = transaction::pos::Unbond::try_from_slice(&data[..])?;
 
@@ -577,6 +515,39 @@ impl Database {
                                             .as_ref()
                                             .map_or("".to_string(), |s| s.to_string()),
                                     )
+                                    .push_bind(false);
+                            })
+                            .build();
+                        query.execute(&mut *sqlx_tx).await?;
+                    }
+                    // this is an ethereum transaction
+                    "tx_bridge_pool" => {
+                        info!("Saving tx_bridge_pool");
+                        let data = tx.data().ok_or(Error::InvalidTxData)?;
+                        // Only TransferToEthereum type is supported at the moment by namada and us.
+                        let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
+
+                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(
+                            "INSERT INTO tx_bridge_pool(
+                                tx_id,
+                                asset,
+                                recipient,
+                                sender,
+                                amount,
+                                gas_amount,
+                                payer
+                            )",
+                        );
+
+                        let query = query_builder
+                            .push_values(std::iter::once(0), |mut b, _| {
+                                b.push_bind(tx.header_hash().0.as_slice().to_vec())
+                                    .push_bind(tx_bridge.transfer.asset.to_string())
+                                    .push_bind(tx_bridge.transfer.recipient.to_string())
+                                    .push_bind(tx_bridge.transfer.sender.to_string())
+                                    .push_bind(tx_bridge.transfer.amount.to_string_native())
+                                    .push_bind(tx_bridge.gas_fee.amount.to_string_native())
+                                    .push_bind(tx_bridge.gas_fee.payer.to_string())
                                     .push_bind(false);
                             })
                             .build();
