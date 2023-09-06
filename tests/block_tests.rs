@@ -4,9 +4,9 @@ use utils::start_server;
 
 #[cfg(test)]
 mod block_tests {
-    use namada_prototype::BlockInfo;
-    use namada_prototype::Database;
-    use namada_prototype::Settings;
+    use namadexer::BlockInfo;
+    use namadexer::Database;
+    use namadexer::Settings;
 
     use super::*;
 

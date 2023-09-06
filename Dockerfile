@@ -26,6 +26,6 @@ RUN apt-get update && rm -rf /var/lib/apt/lists/*
 
 # default env
 ENV INDEXER_CONFIG_PATH "/app/config/Settings.toml"
-ENV RUST_LOG "namada_prototype=debug"
+ENV RUST_LOG "namadexer=debug"
 
 CMD indexer

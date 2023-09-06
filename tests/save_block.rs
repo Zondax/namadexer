@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod save_block {
-    use namada_prototype::utils::load_checksums;
-    use namada_prototype::Database;
-    use namada_prototype::Settings;
+    use namadexer::utils::load_checksums;
+    use namadexer::Database;
+    use namadexer::Settings;
     use std::fs;
     use tendermint::block::Block;
 

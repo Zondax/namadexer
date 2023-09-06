@@ -6,5 +6,10 @@ unsound = "deny"
 ignore = [
     # A security advisory for libsec256k1 
     "RUSTSEC-2021-0076",
+    # No safe update at the moment, we can keep an eye on them to 
+    # enable this checks, once they are solved by upstream dependencies.
+    "RUSTSEC-2023-0033",
+    "RUSTSEC-2021-0041",
+    "RUSTSEC-2023-0052"
 ]
 

@@ -33,10 +33,10 @@ build: download-checksum
 	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" cargo build --features prometheus
 
 run_indexer: download-checksum
-	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" RUST_LOG="namada_prototype=info" cargo r --release --bin indexer --features prometheus
+	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" RUST_LOG="namadexer=info" cargo r --release --bin indexer --features prometheus
 
 run_server: download-checksum
-	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" RUST_LOG="namada_prototype=info" cargo r --release  --bin server --features prometheus
+	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" RUST_LOG="namadexer=info" cargo r --release  --bin server --features prometheus
 
 benchmarks: download-checksum 
 	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" cargo bench 

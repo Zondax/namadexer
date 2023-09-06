@@ -3645,47 +3645,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "namada-prototype"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "axum-prometheus",
- "borsh 0.9.4",
- "bytes",
- "config",
- "criterion",
- "futures",
- "futures-util",
- "getrandom 0.2.10",
- "hex",
- "httpc-test",
- "metrics",
- "metrics-exporter-prometheus",
- "namada",
- "opentelemetry",
- "opentelemetry-jaeger",
- "opentelemetry_api",
- "prost",
- "prost-types",
- "rand 0.8.5",
- "rand_core 0.6.4",
- "serde",
- "serde_derive",
- "serde_json",
- "sqlx",
- "tendermint 0.33.0",
- "tendermint-proto 0.33.0",
- "tendermint-rpc 0.33.0",
- "thiserror",
- "time",
- "tokio",
- "tracing",
- "tracing-opentelemetry",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "namada_core"
 version = "0.21.1"
 source = "git+https://github.com/anoma/namada?tag=v0.21.1#1612bf1b637a02b0a87ff5f5995eb3bb87cd8715"
@@ -3779,6 +3738,47 @@ dependencies = [
  "once_cell",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "namadexer"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "axum-prometheus",
+ "borsh 0.9.4",
+ "bytes",
+ "config",
+ "criterion",
+ "futures",
+ "futures-util",
+ "getrandom 0.2.10",
+ "hex",
+ "httpc-test",
+ "metrics",
+ "metrics-exporter-prometheus",
+ "namada",
+ "opentelemetry",
+ "opentelemetry-jaeger",
+ "opentelemetry_api",
+ "prost",
+ "prost-types",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sqlx",
+ "tendermint 0.33.0",
+ "tendermint-proto 0.33.0",
+ "tendermint-rpc 0.33.0",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
 ]
 
 [[package]]

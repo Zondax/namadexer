@@ -1,4 +1,4 @@
-use namada_prototype::{Database, Settings};
+use namadexer::{Database, Settings};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::query;
 use sqlx::PgPool;

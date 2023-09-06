@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use namada_prototype::utils::load_checksums;
+use namadexer::utils::load_checksums;
 use tendermint::block::Height;
 
 mod utils;
