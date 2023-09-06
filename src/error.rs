@@ -3,9 +3,9 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::json;
 use std::error::Error as StdError;
+use std::num::ParseIntError;
 use thiserror::Error as ThisError;
 use tokio::task::JoinError;
-use std::num::ParseIntError;
 
 use config::ConfigError;
 use opentelemetry_api::metrics::MetricsError;

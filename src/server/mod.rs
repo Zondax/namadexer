@@ -22,8 +22,8 @@ pub mod blocks;
 pub mod tx;
 pub use blocks::BlockInfo;
 pub use tx::TxInfo;
-mod utils;
 pub mod shielded;
+mod utils;
 pub(crate) use utils::{from_hex, serialize_hex};
 
 pub const HTTP_DURATION_SECONDS_BUCKETS: &[f64; 11] = &[
