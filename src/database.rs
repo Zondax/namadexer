@@ -15,7 +15,7 @@ use tendermint_proto::types::EvidenceList as RawEvidenceList;
 use tracing::{info, instrument};
 
 use crate::{
-    DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_EVDS_DURATION, DB_SAVE_TXS_DURATION,
+    DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_EVDS_DURATION, DB_SAVE_TXS_DURATION, MASP_ADDR,
 };
 
 use metrics::{histogram, increment_counter};
@@ -752,6 +752,18 @@ impl Database {
 
         query(&str)
             .bind(hash)
+            .fetch_all(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
+    #[instrument(skip(self))]
+    /// Returns Shielded transactions
+    pub async fn get_shielded_tx(&self) -> Result<Vec<Row>, Error> {
+        // query for transaction with hash
+        let str = format!("SELECT * FROM tx_transfer WHERE source = '{MASP_ADDR}' OR target = '{MASP_ADDR}'");
+
+        query(&str)
             .fetch_all(&*self.pool)
             .await
             .map_err(Error::from)

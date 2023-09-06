@@ -5,6 +5,7 @@ use serde_json::json;
 use std::error::Error as StdError;
 use thiserror::Error as ThisError;
 use tokio::task::JoinError;
+use std::num::ParseIntError;
 
 use config::ConfigError;
 use opentelemetry_api::metrics::MetricsError;
@@ -55,6 +56,8 @@ pub enum Error {
     InvalidChecksum,
     #[error("Unknow error: {0}")]
     Generic(Box<dyn StdError + Send>),
+    #[error("ParseInt error")]
+    ParseIntError(#[from] ParseIntError),
 }
 
 impl From<SendError<tendermint::Block>> for Error {

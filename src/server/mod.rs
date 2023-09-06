@@ -23,6 +23,7 @@ pub mod tx;
 pub use blocks::BlockInfo;
 pub use tx::TxInfo;
 mod utils;
+pub mod shielded;
 pub(crate) use utils::{from_hex, serialize_hex};
 
 pub const HTTP_DURATION_SECONDS_BUCKETS: &[f64; 11] = &[
@@ -123,12 +124,24 @@ async fn get_tx_by_hash(
     Ok(Json(Some(tx)))
 }
 
+// Return a list of the shielded assets and their total compiled using all the shielded transactions (in, internal and out)
+async fn get_shielded_tx(
+    State(state): State<ServerState>,
+) -> Result<Json<shielded::ShieldedAssetsResponse>, Error> {
+    let rows = state.db.get_shielded_tx().await?;
+
+    let shielded_assests_response = shielded::ShieldedAssetsResponse::try_from(&rows)?;
+
+    Ok(Json(shielded_assests_response))
+}
+
 fn server_routes(state: ServerState) -> Router<()> {
     Router::new()
         .route("/block/height/:block_height", get(get_block_by_height))
         .route("/block/hash/:block_hash", get(get_block_by_hash))
         .route("/block/last", get(get_last_block))
         .route("/tx/:tx_hash", get(get_tx_by_hash))
+        .route("/shielded", get(get_shielded_tx))
         .with_state(state)
 }
 
