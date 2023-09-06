@@ -1,9 +1,9 @@
 use std::net::SocketAddr;
 
-use namada_prototype::create_server;
-use namada_prototype::Database;
-use namada_prototype::Error as NError;
-use namada_prototype::ServerConfig;
+use namadexer::create_server;
+use namadexer::Database;
+use namadexer::Error as NError;
+use namadexer::ServerConfig;
 
 // start a server and return its address
 pub fn start_server(db: Database) -> Result<SocketAddr, NError> {

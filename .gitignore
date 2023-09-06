@@ -5,3 +5,4 @@ protoc/*
 *.zip
 /monitoring/grafana/data
 checksums.*
+.idea

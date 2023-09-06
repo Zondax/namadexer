@@ -1,14 +1,14 @@
-use namada_prototype::setup_logging;
-use namada_prototype::start_indexing;
-use namada_prototype::Database;
-use namada_prototype::Error;
+use namadexer::setup_logging;
+use namadexer::start_indexing;
+use namadexer::Database;
+use namadexer::Error;
 
 use tracing::info;
 
 #[cfg(feature = "prometheus")]
-use namada_prototype::PrometheusConfig;
+use namadexer::PrometheusConfig;
 
-use namada_prototype::Settings;
+use namadexer::Settings;
 
 #[cfg(feature = "prometheus")]
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
@@ -36,7 +36,7 @@ async fn start_metrics_server(cfg: &PrometheusConfig) -> Result<(), Error> {
             DB_SAVE_DATA_DURATION_MS_BUCKETS,
         )?
         .set_buckets_for_metric(
-            Matcher::Prefix(namada_prototype::INDEXER_GET_BLOCK_DURATION.to_string()),
+            Matcher::Prefix(namadexer::INDEXER_GET_BLOCK_DURATION.to_string()),
             GET_BLOCK_DURATION_SECONDS_BUCKETS,
         )?
         .install()
