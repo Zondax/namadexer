@@ -18,7 +18,9 @@ impl TryFrom<&Vec<Row>> for ShieldedAssetsResponse {
 
         for row in rows {
             let token: String = row.try_get("token")?;
-            let amount: u64 = u64::from_str_radix(row.try_get("amount")?, 10)?;
+
+            let amount_str: &str = row.try_get("amount")?;
+            let amount: u64 = amount_str.parse::<u64>()?;
 
             let target: String = row.try_get("target")?;
             let source: String = row.try_get("source")?;
