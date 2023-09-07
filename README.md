@@ -6,7 +6,7 @@ Namadexer is an indexer for [Namada](https://github.com/anoma/namada).
 
 The project is composed of 2 entities : the `indexer` and the `server`. They are both written in Rust.
 
-![Namadexer graph](./docs/namadexer.jpg)
+![Namadexer graph](./docs/assets/namadexer.jpg)
 
 - the `indexer`: it connects to the Namada node throught rpc and collect the blocks and transactions. Then it stores them in the postgres database. The indexer doesn't know about the server and can be started independently.
 
