@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 use super::utils::serialize_optional_hex;
 use namada::ibc_proto::google::protobuf::Any;
+use namada::types::eth_bridge_pool::PendingTransfer;
 
 use namada::ibc::applications::transfer::msgs::transfer::MsgTransfer;
 
@@ -33,6 +34,7 @@ pub enum TxDecoded {
     Unbond(transaction::pos::Unbond),
     Withdraw(transaction::pos::Withdraw),
     InitAccount(transaction::account::InitAccount),
+    EthPoolBridge(PendingTransfer),
     Ibc(IbcTx),
 }
 
@@ -95,41 +97,40 @@ impl TxInfo {
             let unknown_type = "unknown".to_string();
             let type_tx = checksums.get(&self.code()).unwrap_or(&unknown_type);
 
-            let decoded = match type_tx.as_str() {
-                "tx_transfer" => {
-                    token::Transfer::try_from_slice(&self.data()).map(TxDecoded::Transfer)?
-                }
-                "tx_bond" => {
-                    transaction::pos::Bond::try_from_slice(&self.data()).map(TxDecoded::Bond)?
-                }
-                "tx_reveal_pk" => {
-                    common::PublicKey::try_from_slice(&self.data()).map(TxDecoded::RevealPK)?
-                }
-                "tx_vote_proposal" => {
-                    transaction::governance::VoteProposalData::try_from_slice(&self.data())
-                        .map(TxDecoded::VoteProposal)?
-                }
-                "tx_init_validator" => {
-                    transaction::pos::InitValidator::try_from_slice(&self.data())
-                        .map(|t| TxDecoded::InitValidator(Box::new(t)))?
-                }
-                "tx_unbond" => {
-                    transaction::pos::Unbond::try_from_slice(&self.data()).map(TxDecoded::Unbond)?
-                }
-                "tx_withdraw" => transaction::pos::Withdraw::try_from_slice(&self.data())
-                    .map(TxDecoded::Withdraw)?,
-                "tx_init_account" => {
-                    transaction::account::InitAccount::try_from_slice(&self.data())
-                        .map(TxDecoded::InitAccount)?
-                }
-                "tx_ibc" => {
-                    dbg!(&self.hash);
-                    Self::decode_ibc(&self.data()).map(TxDecoded::Ibc)?
-                }
-                _ => {
-                    return Err(Error::InvalidTxData);
-                }
-            };
+            let decoded =
+                match type_tx.as_str() {
+                    "tx_transfer" => {
+                        token::Transfer::try_from_slice(&self.data()).map(TxDecoded::Transfer)?
+                    }
+                    "tx_bond" => {
+                        transaction::pos::Bond::try_from_slice(&self.data()).map(TxDecoded::Bond)?
+                    }
+                    "tx_reveal_pk" => {
+                        common::PublicKey::try_from_slice(&self.data()).map(TxDecoded::RevealPK)?
+                    }
+                    "tx_vote_proposal" => {
+                        transaction::governance::VoteProposalData::try_from_slice(&self.data())
+                            .map(TxDecoded::VoteProposal)?
+                    }
+                    "tx_init_validator" => {
+                        transaction::pos::InitValidator::try_from_slice(&self.data())
+                            .map(|t| TxDecoded::InitValidator(Box::new(t)))?
+                    }
+                    "tx_unbond" => transaction::pos::Unbond::try_from_slice(&self.data())
+                        .map(TxDecoded::Unbond)?,
+                    "tx_withdraw" => transaction::pos::Withdraw::try_from_slice(&self.data())
+                        .map(TxDecoded::Withdraw)?,
+                    "tx_init_account" => {
+                        transaction::account::InitAccount::try_from_slice(&self.data())
+                            .map(TxDecoded::InitAccount)?
+                    }
+                    "tx_ibc" => Self::decode_ibc(&self.data()).map(TxDecoded::Ibc)?,
+                    "tx_bridge_pool" => PendingTransfer::try_from_slice(&self.data())
+                        .map(TxDecoded::EthPoolBridge)?,
+                    _ => {
+                        return Err(Error::InvalidTxData);
+                    }
+                };
 
             self.set_tx(decoded);
 
