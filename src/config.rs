@@ -118,6 +118,7 @@ impl Default for DatabaseConfig {
 #[derive(Debug, Deserialize, Default)]
 pub struct Settings {
     pub log_level: String,
+    pub network: String,
     pub database: DatabaseConfig,
     pub server: ServerConfig,
     pub indexer: IndexerConfig,
@@ -137,7 +138,14 @@ impl Settings {
                 .add_source(File::with_name(&path))
                 .build()?;
 
-            return config.try_deserialize().map_err(Error::from);
+            let settings: Self = config.try_deserialize().map_err(Error::from)?;
+
+            // verify if network is correct
+            if settings.network.contains(".") {
+                panic!("network cannot contains '.' (example of valid network 'public-testnet-12')")
+            }
+
+            return Ok(settings);
         }
 
         Ok(Self::default())
