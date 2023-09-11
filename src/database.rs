@@ -58,9 +58,11 @@ impl Database {
             .connect(&config)
             .await?;
 
+        let network_schema = network.replace('-', "_");
+
         Ok(Database {
             pool: Arc::new(pool),
-            network: network.to_string(),
+            network: network_schema.to_string(),
         })
     }
 
