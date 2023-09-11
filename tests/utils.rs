@@ -17,7 +17,7 @@ pub fn start_server(db: Database) -> Result<SocketAddr, NError> {
 
     let (socket, server) = create_server(db, &config)?;
 
-    tokio::spawn(async move { server.await });
+    tokio::spawn(server);
 
     Ok(socket)
 }
