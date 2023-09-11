@@ -88,6 +88,10 @@ impl Database {
     pub async fn create_tables(&self) -> Result<(), Error> {
         info!("Creating tables if doesn't exist");
 
+        query(format!("CREATE SCHEMA {}", self.network))
+            .execute(&*self.pool)
+            .await?;
+
         query(get_create_block_table_query(&self.network).as_str())
             .execute(&*self.pool)
             .await?;

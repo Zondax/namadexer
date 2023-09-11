@@ -15,7 +15,7 @@ mod block_tests {
         // start server
         let cfg = Settings::new().unwrap();
 
-        let db = Database::new(cfg.database_config(), "public-testnte-12")
+        let db = Database::new(cfg.database_config(), "public-testnet-12")
             .await
             .unwrap();
 
@@ -51,7 +51,7 @@ mod block_tests {
         // start server
         let cfg = Settings::new().unwrap();
 
-        let db = Database::new(cfg.database_config(), "public-testnte-12")
+        let db = Database::new(cfg.database_config(), "public-testnet-12")
             .await
             .unwrap();
 
@@ -80,7 +80,7 @@ mod block_tests {
         // start server
         let cfg = Settings::new().unwrap();
 
-        let db = Database::new(cfg.database_config(), "public-testnte-12")
+        let db = Database::new(cfg.database_config(), "public-testnet-12")
             .await
             .unwrap();
 
