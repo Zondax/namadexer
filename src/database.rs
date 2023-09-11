@@ -15,8 +15,8 @@ use tracing::{info, instrument};
 
 use crate::{
     BLOCK_TABLE, DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_EVDS_DURATION,
-    DB_SAVE_TXS_DURATION, EVIDENCES_TABLE, TRANSACTIONS_TABLE, TX_BOND_TABLE, TX_BRIDGE_POOL_TABLE,
-    TX_TRANSFER_TABLE,
+    DB_SAVE_TXS_DURATION, EVIDENCES_TABLE, MASP_ADDR, TRANSACTIONS_TABLE, TX_BOND_TABLE,
+    TX_BRIDGE_POOL_TABLE, TX_TRANSFER_TABLE,
 };
 
 use metrics::{histogram, increment_counter};
@@ -727,6 +727,20 @@ impl Database {
 
         query(&str)
             .bind(hash)
+            .fetch_all(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
+    #[instrument(skip(self))]
+    /// Returns Shielded transactions
+    pub async fn get_shielded_tx(&self) -> Result<Vec<Row>, Error> {
+        // query for transaction with hash
+        let str = format!(
+            "SELECT * FROM tx_transfer WHERE source = '{MASP_ADDR}' OR target = '{MASP_ADDR}'"
+        );
+
+        query(&str)
             .fetch_all(&*self.pool)
             .await
             .map_err(Error::from)

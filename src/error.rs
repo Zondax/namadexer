@@ -3,6 +3,7 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::json;
 use std::error::Error as StdError;
+use std::num::ParseIntError;
 use thiserror::Error as ThisError;
 use tokio::task::JoinError;
 
@@ -55,6 +56,8 @@ pub enum Error {
     InvalidChecksum,
     #[error("Unknow error: {0}")]
     Generic(Box<dyn StdError + Send>),
+    #[error("ParseInt error")]
+    ParseIntError(#[from] ParseIntError),
 }
 
 impl From<SendError<tendermint::Block>> for Error {
