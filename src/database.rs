@@ -683,7 +683,7 @@ impl Database {
         .execute(&*self.pool)
         .await?;
 
-        query(format!("ALTER TABLE {}.transactions ADD CONSTRAINT fk_block_id FOREIGN KEY (block_id) REFERENCES blocks (block_id);", self.network).as_str())
+        query(format!("ALTER TABLE {0}.transactions ADD CONSTRAINT fk_block_id FOREIGN KEY (block_id) REFERENCES {0}.blocks (block_id);", self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
