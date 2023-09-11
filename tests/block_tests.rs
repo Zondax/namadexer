@@ -51,7 +51,7 @@ mod block_tests {
         // start server
         let cfg = Settings::new().unwrap();
 
-        let db = Database::new(cfg.database_config()).await.unwrap();
+        let db = Database::new(cfg.database_config(), "public-testnte-12").await.unwrap();
 
         // start a testing server an gives back the server address
         let addr = start_server(db).unwrap();
@@ -78,7 +78,7 @@ mod block_tests {
         // start server
         let cfg = Settings::new().unwrap();
 
-        let db = Database::new(cfg.database_config()).await.unwrap();
+        let db = Database::new(cfg.database_config(), "public-testnte-12").await.unwrap();
 
         // start a testing server an gives back the server address
         let addr = start_server(db).unwrap();

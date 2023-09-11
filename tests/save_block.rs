@@ -29,7 +29,7 @@ mod save_block {
         let config = Settings::new().unwrap();
         let config = config.database_config();
 
-        let db = Database::new(config).await.unwrap();
+        let db = Database::new(config, "public-testnte-12").await.unwrap();
 
         db.create_indexes().await.unwrap();
     }
