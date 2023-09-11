@@ -124,8 +124,7 @@ impl Database {
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
     ) -> Result<(), Error> {
-        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(
-        format!(
+        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
             "INSERT INTO {}.blocks(
                 block_id,
                 header_version_app,
