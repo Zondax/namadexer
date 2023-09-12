@@ -2,8 +2,8 @@
 
 This is the documentation for the Namada Indexer. 
 
-* [overview](./01-overview.md)
-* [indexer](./02-indexer.md)
-* [server](./03-server.md)
-* [deployment](./04-deployment.md)
-* [telemetry](./05-telemetry.md)
+* [overview](./02-overview.md)
+* [indexer](./03-indexer.md)
+* [server](./04-server.md)
+* [deployment](./05-deployment.md)
+* [telemetry](./06-telemetry.md)
