@@ -10,7 +10,7 @@ RUN chmod -R 777 ./protoc
 
 ENV PROTOC "/usr/src/namada-prototype/protoc/bin/protoc"
 
-RUN download-checksum
+RUN make download-checksum
 
 RUN cargo install --path . -F prometheus
 
