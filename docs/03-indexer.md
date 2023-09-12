@@ -180,5 +180,5 @@ Indexes:
 
 ## Indexer logic
 
-![Indexer graph](./indexer_graph.jpg)
+![Indexer graph](./assets/indexer_graph.jpg)
 
