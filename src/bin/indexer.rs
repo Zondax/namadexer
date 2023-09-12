@@ -51,7 +51,7 @@ async fn main() -> Result<(), Error> {
 
     info!("Starting database connection");
 
-    let db = Database::new(cfg.database_config()).await?;
+    let db = Database::new(cfg.database_config(), cfg.network.as_str()).await?;
     info!("Creating tables");
     db.create_tables().await?;
 

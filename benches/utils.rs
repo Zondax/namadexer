@@ -45,7 +45,7 @@ pub async fn create_bench_database(pg_pool: &PgPool, name: &str) -> Database {
         .await
         .expect("Could not connect to bench database");
 
-    Database::with_pool(pool)
+    Database::with_pool(pool, "public-testnet-12".to_string())
 }
 
 pub async fn destroy_bench_database(pg_pool: &PgPool, name: &str) {
@@ -60,7 +60,7 @@ pub fn load_blocks() -> Vec<Block> {
 pub async fn helper_db() -> Database {
     let config = Settings::new().unwrap();
     let config = config.database_config();
-    Database::new(config).await.unwrap()
+    Database::new(config, "public-testnet-12").await.unwrap()
 }
 
 pub async fn save_blocks(
@@ -69,6 +69,6 @@ pub async fn save_blocks(
     checksums: &HashMap<String, String>,
 ) {
     for block in blocks {
-        db.save_block(&block, &checksums).await.unwrap();
+        db.save_block(block, checksums).await.unwrap();
     }
 }

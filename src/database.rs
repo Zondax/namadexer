@@ -14,9 +14,14 @@ use tendermint_proto::types::EvidenceList as RawEvidenceList;
 use tracing::{info, instrument};
 
 use crate::{
-    BLOCK_TABLE, DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_EVDS_DURATION,
-    DB_SAVE_TXS_DURATION, EVIDENCES_TABLE, MASP_ADDR, TRANSACTIONS_TABLE, TX_BOND_TABLE,
-    TX_BRIDGE_POOL_TABLE, TX_TRANSFER_TABLE,
+    DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_EVDS_DURATION, DB_SAVE_TXS_DURATION,
+    MASP_ADDR,
+};
+
+use crate::tables::{
+    get_create_block_table_query, get_create_evidences_table_query,
+    get_create_transactions_table_query, get_create_tx_bond_table_query,
+    get_create_tx_bridge_pool_table_query, get_create_tx_transfer_table_query,
 };
 
 use metrics::{histogram, increment_counter};
@@ -30,10 +35,12 @@ const DATABASE_TIMEOUT: u64 = 60;
 #[derive(Clone)]
 pub struct Database {
     pool: Arc<PgPool>,
+    // we use the network as the name of the schema to allow diffrent net on the same database
+    network: String,
 }
 
 impl Database {
-    pub async fn new(db_config: &DatabaseConfig) -> Result<Database, Error> {
+    pub async fn new(db_config: &DatabaseConfig, network: &str) -> Result<Database, Error> {
         // sqlx expects config of the form:
         // postgres://user:password@host/db_name
         let config = format!(
@@ -51,14 +58,18 @@ impl Database {
             .connect(&config)
             .await?;
 
+        let network_schema = network.replace('-', "_");
+
         Ok(Database {
             pool: Arc::new(pool),
+            network: network_schema.to_string(),
         })
     }
 
-    pub fn with_pool(pool: PgPool) -> Self {
+    pub fn with_pool(pool: PgPool, network: String) -> Self {
         Self {
             pool: Arc::new(pool),
+            network,
         }
     }
 
@@ -77,19 +88,33 @@ impl Database {
     pub async fn create_tables(&self) -> Result<(), Error> {
         info!("Creating tables if doesn't exist");
 
-        query(BLOCK_TABLE).execute(&*self.pool).await?;
+        query(format!("CREATE SCHEMA {}", self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
 
-        query(TRANSACTIONS_TABLE).execute(&*self.pool).await?;
+        query(get_create_block_table_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
 
-        query(EVIDENCES_TABLE).execute(&*self.pool).await?;
+        query(get_create_transactions_table_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
 
-        query(TX_TRANSFER_TABLE).execute(&*self.pool).await?;
+        query(get_create_evidences_table_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
 
-        query(TX_BOND_TABLE).execute(&*self.pool).await?;
+        query(get_create_tx_transfer_table_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
 
-        query(TX_BOND_TABLE).execute(&*self.pool).await?;
+        query(get_create_tx_bond_table_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
 
-        query(TX_BRIDGE_POOL_TABLE).execute(&*self.pool).await?;
+        query(get_create_tx_bridge_pool_table_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
 
         Ok(())
     }
@@ -101,9 +126,10 @@ impl Database {
         block: &Block,
         checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
+        network: &str,
     ) -> Result<(), Error> {
-        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(
-            "INSERT INTO blocks(
+        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+            "INSERT INTO {}.blocks(
                 block_id,
                 header_version_app,
                 header_version_block,
@@ -128,7 +154,8 @@ impl Database {
                 commit_block_id_parts_header_total,
                 commit_block_id_parts_header_hash
             )",
-        );
+            network
+        ));
         let block_id = block.header.hash().as_bytes().to_vec();
 
         let query_block = query_builder
@@ -202,8 +229,15 @@ impl Database {
         query_block.execute(&mut *sqlx_tx).await?;
 
         let evidence_list = RawEvidenceList::from(block.evidence().clone());
-        Self::save_evidences(evidence_list, &block_id, sqlx_tx).await?;
-        Self::save_transactions(block.data.as_ref(), &block_id, checksums_map, sqlx_tx).await?;
+        Self::save_evidences(evidence_list, &block_id, sqlx_tx, network).await?;
+        Self::save_transactions(
+            block.data.as_ref(),
+            &block_id,
+            checksums_map,
+            sqlx_tx,
+            network,
+        )
+        .await?;
 
         Ok(())
     }
@@ -225,7 +259,7 @@ impl Database {
         // succeeded.
         let mut sqlx_tx = self.transaction().await?;
 
-        Self::save_block_impl(block, checksums_map, &mut sqlx_tx).await?;
+        Self::save_block_impl(block, checksums_map, &mut sqlx_tx, self.network.as_str()).await?;
 
         let res = sqlx_tx.commit().await.map_err(Error::from);
 
@@ -255,14 +289,14 @@ impl Database {
     /// It is up to the caller to commit the operation.
     /// this method is meant to be used when caller is saving
     /// many blocks, and can commit after it.
-    #[instrument(skip(self, block, checksums_map, sqlx_tx))]
+    #[instrument(skip(block, checksums_map, sqlx_tx, network))]
     pub async fn save_block_tx<'a>(
-        &self,
         block: &Block,
         checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
+        network: &str,
     ) -> Result<(), Error> {
-        Self::save_block_impl(block, checksums_map, sqlx_tx).await
+        Self::save_block_impl(block, checksums_map, sqlx_tx, network).await
     }
 
     /// Save all the evidences in the list, it is up to the caller to
@@ -273,11 +307,12 @@ impl Database {
         evidences: RawEvidenceList,
         block_id: &[u8],
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
+        network: &str,
     ) -> Result<(), Error> {
         info!("saving evidences");
 
-        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(
-            "INSERT INTO evidences(
+        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+            "INSERT INTO {}.evidences(
                     block_id,
                     height,
                     time,
@@ -285,7 +320,8 @@ impl Database {
                     total_voting_power,
                     validator_power
             )",
-        );
+            network
+        ));
 
         let instant = tokio::time::Instant::now();
 
@@ -378,6 +414,7 @@ impl Database {
         block_id: &[u8],
         checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
+        network: &str,
     ) -> Result<(), Error> {
         // use for metrics
         let instant = tokio::time::Instant::now();
@@ -396,15 +433,16 @@ impl Database {
         }
 
         info!(message = "Saving transactions");
-        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(
-            "INSERT INTO transactions(
+        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+            "INSERT INTO {}.transactions(
                     hash, 
                     block_id, 
                     tx_type,
                     code,
                     data
                 )",
-        );
+            network
+        ));
 
         // this will holds tuples (hash, block_id, tx_type, code, data)
         // in order to push txs.len at once in a single query.
@@ -438,8 +476,8 @@ impl Database {
                         let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let transfer = token::Transfer::try_from_slice(&data[..])?;
 
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(
-                            "INSERT INTO tx_transfer(
+                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                            "INSERT INTO {}.tx_transfer(
                                 tx_id,
                                 source, 
                                 target, 
@@ -448,7 +486,8 @@ impl Database {
                                 key,
                                 shielded
                             )",
-                        );
+                            network
+                        ));
 
                         let query = query_builder
                             .push_values(std::iter::once(0), |mut b, _| {
@@ -468,15 +507,16 @@ impl Database {
                         let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let bond = transaction::pos::Bond::try_from_slice(&data[..])?;
 
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(
-                            "INSERT INTO tx_bond(
+                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                            "INSERT INTO {}.tx_bond(
                                 tx_id,
                                 validator,
                                 amount,
                                 source,
                                 bond
                             )",
-                        );
+                            network
+                        ));
 
                         let query = query_builder
                             .push_values(std::iter::once(0), |mut b, _| {
@@ -494,15 +534,16 @@ impl Database {
                         let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let unbond = transaction::pos::Unbond::try_from_slice(&data[..])?;
 
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(
-                            "INSERT INTO tx_bond(
+                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                            "INSERT INTO {}.tx_bond(
                                 tx_id,
                                 validator,
                                 amount,
                                 source,
                                 bond
                             )",
-                        );
+                            network
+                        ));
 
                         let query = query_builder
                             .push_values(std::iter::once(0), |mut b, _| {
@@ -527,8 +568,8 @@ impl Database {
                         // Only TransferToEthereum type is supported at the moment by namada and us.
                         let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
 
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(
-                            "INSERT INTO tx_bridge_pool(
+                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                            "INSERT INTO {}.tx_bridge_pool(
                                 tx_id,
                                 asset,
                                 recipient,
@@ -537,7 +578,8 @@ impl Database {
                                 gas_amount,
                                 payer
                             )",
-                        );
+                            network
+                        ));
 
                         let query = query_builder
                             .push_values(std::iter::once(0), |mut b, _| {
@@ -610,52 +652,110 @@ impl Database {
     pub async fn create_indexes(&self) -> Result<(), Error> {
         // we create indexes on the tables to facilitate querying data
         query(
-            "
-                ALTER TABLE blocks ADD CONSTRAINT pk_block_id PRIMARY KEY (block_id);
+            format!(
+                "
+                ALTER TABLE {}.blocks ADD CONSTRAINT pk_block_id PRIMARY KEY (block_id);
             ",
+                self.network
+            )
+            .as_str(),
         )
         .execute(&*self.pool)
         .await?;
 
-        query("CREATE UNIQUE INDEX ux_header_height ON blocks (header_height);")
+        query(
+            format!(
+                "CREATE UNIQUE INDEX ux_header_height ON {}.blocks (header_height);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
+
+        query(
+            format!(
+                "ALTER TABLE {}.transactions ADD CONSTRAINT pk_hash PRIMARY KEY (hash);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
+
+        query(format!("ALTER TABLE {0}.transactions ADD CONSTRAINT fk_block_id FOREIGN KEY (block_id) REFERENCES {0}.blocks (block_id);", self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
-        query("ALTER TABLE transactions ADD CONSTRAINT pk_hash PRIMARY KEY (hash);")
-            .execute(&*self.pool)
-            .await?;
+        query(
+            format!(
+                "ALTER TABLE {}.tx_transfer ADD CONSTRAINT pk_tx_id_transfer PRIMARY KEY (tx_id);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
 
-        query("ALTER TABLE transactions ADD CONSTRAINT fk_block_id FOREIGN KEY (block_id) REFERENCES blocks (block_id);")
-            .execute(&*self.pool)
-            .await?;
+        query(
+            format!(
+                "CREATE INDEX x_source_transfer ON {}.tx_transfer USING HASH (source);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
 
-        query("ALTER TABLE tx_transfer ADD CONSTRAINT pk_tx_id_transfer PRIMARY KEY (tx_id);")
-            .execute(&*self.pool)
-            .await?;
+        query(
+            format!(
+                "CREATE INDEX x_target_transfer ON {}.tx_transfer USING HASH (target);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
 
-        query("CREATE INDEX x_source_transfer ON tx_transfer USING HASH (source);")
-            .execute(&*self.pool)
-            .await?;
+        query(
+            format!(
+                "ALTER TABLE {}.tx_bond ADD CONSTRAINT pk_tx_id_bond PRIMARY KEY (tx_id);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
 
-        query("CREATE INDEX x_target_transfer ON tx_transfer USING HASH (target);")
-            .execute(&*self.pool)
-            .await?;
+        query(
+            format!(
+                "ALTER TABLE {}.tx_bridge_pool ADD CONSTRAINT pk_tx_id_bridge PRIMARY KEY (tx_id);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
 
-        query("ALTER TABLE tx_bond ADD CONSTRAINT pk_tx_id_bond PRIMARY KEY (tx_id);")
-            .execute(&*self.pool)
-            .await?;
+        query(
+            format!(
+                "CREATE INDEX x_validator_bond ON {}.tx_bond USING HASH (validator);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
 
-        query("ALTER TABLE tx_bridge_pool ADD CONSTRAINT pk_tx_id_bridge PRIMARY KEY (tx_id);")
-            .execute(&*self.pool)
-            .await?;
-
-        query("CREATE INDEX x_validator_bond ON tx_bond USING HASH (validator);")
-            .execute(&*self.pool)
-            .await?;
-
-        query("CREATE INDEX x_source_bond ON tx_bond USING HASH (source);")
-            .execute(&*self.pool)
-            .await?;
+        query(
+            format!(
+                "CREATE INDEX x_source_bond ON {}.tx_bond USING HASH (source);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
 
         Ok(())
     }
@@ -663,7 +763,10 @@ impl Database {
     #[instrument(skip(self, block_id))]
     pub async fn block_by_id(&self, block_id: &[u8]) -> Result<Option<Row>, Error> {
         // query for the block if it exists
-        let str = format!("SELECT * FROM {BLOCKS_TABLE_NAME} WHERE block_id=$1");
+        let str = format!(
+            "SELECT * FROM {}.{BLOCKS_TABLE_NAME} WHERE block_id=$1",
+            self.network
+        );
         query(&str)
             .bind(block_id)
             .fetch_optional(&*self.pool)
@@ -674,7 +777,10 @@ impl Database {
     /// Returns the block at `block_height` if present, otherwise returns an Error.
     #[instrument(skip(self))]
     pub async fn block_by_height(&self, block_height: u32) -> Result<Option<Row>, Error> {
-        let str = format!("SELECT * FROM {BLOCKS_TABLE_NAME} WHERE header_height={block_height}");
+        let str = format!(
+            "SELECT * FROM {}.{BLOCKS_TABLE_NAME} WHERE header_height={block_height}",
+            self.network
+        );
 
         query(&str)
             .fetch_optional(&*self.pool)
@@ -685,7 +791,7 @@ impl Database {
     #[instrument(skip(self))]
     /// Returns the latest block, otherwise returns an Error.
     pub async fn get_last_block(&self) -> Result<Row, Error> {
-        let str = format!("SELECT * FROM {BLOCKS_TABLE_NAME} WHERE header_height = (SELECT MAX(header_height) FROM {BLOCKS_TABLE_NAME})");
+        let str = format!("SELECT * FROM {0}.{BLOCKS_TABLE_NAME} WHERE header_height = (SELECT MAX(header_height) FROM {0}.{BLOCKS_TABLE_NAME})", self.network);
 
         // use query_one as the row matching max height is unique.
         query(&str)
@@ -697,7 +803,10 @@ impl Database {
     #[instrument(skip(self))]
     /// Returns the latest height value, otherwise returns an Error.
     pub async fn get_last_height(&self) -> Result<Row, Error> {
-        let str = format!("SELECT MAX(header_height) AS header_height FROM {BLOCKS_TABLE_NAME}");
+        let str = format!(
+            "SELECT MAX(header_height) AS header_height FROM {}.{BLOCKS_TABLE_NAME}",
+            self.network
+        );
 
         // use query_one as the row matching max height is unique.
         query(&str)
@@ -710,7 +819,10 @@ impl Database {
     /// Returns Transaction identified by hash
     pub async fn get_tx(&self, hash: &[u8]) -> Result<Option<Row>, Error> {
         // query for transaction with hash
-        let str = format!("SELECT * FROM {TX_TABLE_NAME} WHERE hash=$1");
+        let str = format!(
+            "SELECT * FROM {}.{TX_TABLE_NAME} WHERE hash=$1",
+            self.network
+        );
 
         query(&str)
             .bind(hash)
@@ -723,7 +835,7 @@ impl Database {
     /// Returns all the tx hashes for a block
     pub async fn get_tx_hashes_block(&self, hash: &[u8]) -> Result<Vec<Row>, Error> {
         // query for all tx hash that are in a block identified by the block_id
-        let str = format!("SELECT t.hash FROM {BLOCKS_TABLE_NAME} b JOIN {TX_TABLE_NAME} t ON b.block_id = t.block_id WHERE b.block_id =$1;");
+        let str = format!("SELECT t.hash FROM {0}.{BLOCKS_TABLE_NAME} b JOIN {0}.{TX_TABLE_NAME} t ON b.block_id = t.block_id WHERE b.block_id =$1;", self.network);
 
         query(&str)
             .bind(hash)
@@ -737,7 +849,8 @@ impl Database {
     pub async fn get_shielded_tx(&self) -> Result<Vec<Row>, Error> {
         // query for transaction with hash
         let str = format!(
-            "SELECT * FROM tx_transfer WHERE source = '{MASP_ADDR}' OR target = '{MASP_ADDR}'"
+            "SELECT * FROM {}.tx_transfer WHERE source = '{MASP_ADDR}' OR target = '{MASP_ADDR}'",
+            self.network
         );
 
         query(&str)
@@ -750,7 +863,8 @@ impl Database {
     /// Returns info about the indexes existing on the table, otherwise returns an Error.
     pub async fn check_indexes(&self) -> Result<Vec<Row>, Error> {
         let str = format!(
-            "SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '{BLOCKS_TABLE_NAME}';"
+            "SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '{}.{BLOCKS_TABLE_NAME}';",
+            self.network
         );
 
         query(&str)
