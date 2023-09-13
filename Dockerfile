@@ -15,7 +15,7 @@ RUN make download-checksum
 RUN cargo install --path . -F prometheus
 
 ##### RUNNER #####
-FROM debian:buster-slim
+FROM debian:12-slim
 
 LABEL author="Lola Rigaut-Luczak <lola@zondax.ch>"
 
