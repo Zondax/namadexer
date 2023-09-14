@@ -1,14 +1,14 @@
 ##### BUILDER #####
 FROM rustlang/rust:nightly as builder
 
-WORKDIR /usr/src/namada-prototype
+WORKDIR /usr/src/namadexer
 COPY . .
 # We need a specific protoc version
 RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.16.3/protoc-3.16.3-linux-x86_64.zip
 RUN unzip protoc-3.16.3-linux-x86_64.zip -d ./protoc
 RUN chmod -R 777 ./protoc
 
-ENV PROTOC "/usr/src/namada-prototype/protoc/bin/protoc"
+ENV PROTOC "/usr/src/namadexer/protoc/bin/protoc"
 
 RUN make download-checksum
 
@@ -23,7 +23,7 @@ WORKDIR /app
 
 COPY --from=builder /usr/local/cargo/bin/server /usr/local/bin/server
 COPY --from=builder /usr/local/cargo/bin/indexer /usr/local/bin/indexer
-COPY --from=builder /usr/src/namada-prototype/checksums.json /app
+COPY --from=builder /usr/src/namadexer/checksums.json /app
 
 RUN apt-get update && rm -rf /var/lib/apt/lists/*
 
