@@ -128,105 +128,137 @@ impl Database {
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
     ) -> Result<(), Error> {
-        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-            "INSERT INTO {}.blocks(
-                block_id,
-                header_version_app,
-                header_version_block,
-                header_chain_id,
-                header_height,
-                header_time,
-                header_last_block_id_hash,
-                header_last_block_id_parts_header_total,
-                header_last_block_id_parts_header_hash,
-                header_last_commit_hash,
-                header_data_hash,
-                header_validators_hash,
-                header_next_validators_hash,
-                header_consensus_hash,
-                header_app_hash,
-                header_last_results_hash,
-                header_evidence_hash,
-                header_proposer_address,
-                commit_height,
-                commit_round,
-                commit_block_id_hash,
-                commit_block_id_parts_header_total,
-                commit_block_id_parts_header_hash
-            )",
-            network
-        ));
+        // let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+        //     "INSERT INTO {}.blocks(
+        //         block_id,
+        //         header_version_app,
+        //         header_version_block,
+        //         header_chain_id,
+        //         header_height,
+        //         header_time,
+        //         header_last_block_id_hash,
+        //         header_last_block_id_parts_header_total,
+        //         header_last_block_id_parts_header_hash,
+        //         header_last_commit_hash,
+        //         header_data_hash,
+        //         header_validators_hash,
+        //         header_next_validators_hash,
+        //         header_consensus_hash,
+        //         header_app_hash,
+        //         header_last_results_hash,
+        //         header_evidence_hash,
+        //         header_proposer_address,
+        //         commit_height,
+        //         commit_round,
+        //         commit_block_id_hash,
+        //         commit_block_id_parts_header_total,
+        //         commit_block_id_parts_header_hash
+        //     )",
+        //     network
+        // ));
+
         let block_id = block.header.hash().as_bytes().to_vec();
 
-        let query_block = query_builder
-            .push_values(std::iter::once(0), |mut b, _| {
-                b.push_bind(block_id.clone())
-                    .push_bind(block.header.version.app as i32)
-                    .push_bind(block.header.version.block as i32)
-                    .push_bind(block.header.chain_id.as_str())
-                    .push_bind(block.header.height.value() as i32)
-                    .push_bind(block.header.time.to_rfc3339())
-                    .push_bind(
-                        block
-                            .header
-                            .last_block_id
-                            .map(|id| id.hash.as_bytes().to_vec()),
-                    )
-                    .push_bind(
-                        block
-                            .header
-                            .last_block_id
-                            .map(|id| id.part_set_header.total as i32),
-                    )
-                    .push_bind(
-                        block
-                            .header
-                            .last_block_id
-                            .map(|id| id.part_set_header.hash.as_bytes().to_vec()),
-                    )
-                    .push_bind(
-                        block
-                            .header
-                            .last_commit_hash
-                            .map(|lch| lch.as_bytes().to_vec()),
-                    )
-                    .push_bind(block.header.data_hash.map(|dh| dh.as_bytes().to_vec()))
-                    .push_bind(block.header.validators_hash.as_bytes().to_vec())
-                    .push_bind(block.header.next_validators_hash.as_bytes().to_vec())
-                    .push_bind(block.header.consensus_hash.as_bytes().to_vec())
-                    .push_bind(block.header.app_hash.to_string())
-                    .push_bind(
-                        block
-                            .header
-                            .last_results_hash
-                            .map(|lrh| lrh.as_bytes().to_vec()),
-                    )
-                    .push_bind(block.header.evidence_hash.map(|eh| eh.as_bytes().to_vec()))
-                    .push_bind(block.header.proposer_address.to_string())
-                    .push_bind(block.last_commit.as_ref().map(|c| c.height.value() as i32))
-                    .push_bind(block.last_commit.as_ref().map(|c| c.round.value() as i32))
-                    .push_bind(
-                        block
-                            .last_commit
-                            .as_ref()
-                            .map(|c| c.block_id.hash.as_bytes().to_vec()),
-                    )
-                    .push_bind(
-                        block
-                            .last_commit
-                            .as_ref()
-                            .map(|c| c.block_id.part_set_header.total as i32),
-                    )
-                    .push_bind(
-                        block
-                            .last_commit
-                            .as_ref()
-                            .map(|c| c.block_id.part_set_header.hash.as_bytes().to_vec()),
-                    );
-            })
-            .build();
+        let statement = format!(
+            "COPY {}.blocks FROM stdin (DELIMITER ',') 
+            \\\\x{},{},{},{},{},{},\\\\x{},{},\\\\x{},\\\\x{},\\\\x{},\\\\x{},\\\\x{},\\\\x{},{},\\\\x{},\\\\x{},{},{},{},\\\\x{},{},\\\\x{}",
+            network,
+            hex::encode(&block_id),
+            block.header.version.app,
+            block.header.version.block,
+            block.header.chain_id.as_str(),
+            block.header.height.value(),
+            block.header.time.to_rfc3339(),
+            block.header.last_block_id.map_or("".to_string(), |id| hex::encode(id.hash.as_bytes().to_vec())),
+            block.header.last_block_id.map_or("".to_string(),|id| id.part_set_header.total.to_string()),
+            block.header.last_block_id.map_or("".to_string(), |id| hex::encode(id.part_set_header.hash.as_bytes().to_vec())),
+            block.header.last_commit_hash.map_or("".to_string(), |lch| hex::encode(lch.as_bytes().to_vec())),
+            block.header.data_hash.map_or("".to_string(),|dh| hex::encode(dh.as_bytes().to_vec())),
+            hex::encode(block.header.validators_hash.as_bytes().to_vec()),
+            hex::encode(block.header.next_validators_hash.as_bytes().to_vec()),
+            hex::encode(block.header.consensus_hash.as_bytes().to_vec()),
+            block.header.app_hash.to_string(),
+            block.header.last_results_hash.map_or("".to_string(),|lrh| hex::encode(lrh.as_bytes().to_vec())),
+            block.header.evidence_hash.map_or("".to_string(), |eh| hex::encode(eh.as_bytes().to_vec())),
+            block.header.proposer_address.to_string(),
+            block.last_commit.as_ref().map_or("".to_string(), |c| c.height.value().to_string()),
+            block.last_commit.as_ref().map_or("".to_string(), |c| c.round.value().to_string()),
+            block.last_commit.as_ref().map_or("".to_string(), |c| hex::encode(c.block_id.hash.as_bytes().to_vec())),
+            block.last_commit.as_ref().map_or("".to_string(), |c| c.block_id.part_set_header.total.to_string()),
+            block.last_commit.as_ref().map_or("".to_string(), |c| hex::encode(c.block_id.part_set_header.hash.as_bytes().to_vec())),
+        );
 
-        query_block.execute(&mut *sqlx_tx).await?;
+
+        // let query_block = query_builder
+        //     .push_values(std::iter::once(0), |mut b, _| {
+        //         b.push_bind(block_id.clone())
+        //             .push_bind(block.header.version.app as i32)
+        //             .push_bind(block.header.version.block as i32)
+        //             .push_bind(block.header.chain_id.as_str())
+        //             .push_bind(block.header.height.value() as i32)
+        //             .push_bind(block.header.time.to_rfc3339())
+        //             .push_bind(
+        //                 block
+        //                     .header
+        //                     .last_block_id
+        //                     .map(|id| id.hash.as_bytes().to_vec()),
+        //             )
+        //             .push_bind(
+        //                 block
+        //                     .header
+        //                     .last_block_id
+        //                     .map(|id| id.part_set_header.total as i32),
+        //             )
+        //             .push_bind(
+        //                 block
+        //                     .header
+        //                     .last_block_id
+        //                     .map(|id| id.part_set_header.hash.as_bytes().to_vec()),
+        //             )
+        //             .push_bind(
+        //                 block
+        //                     .header
+        //                     .last_commit_hash
+        //                     .map(|lch| lch.as_bytes().to_vec()),
+        //             )
+        //             .push_bind(block.header.data_hash.map(|dh| dh.as_bytes().to_vec()))
+        //             .push_bind(block.header.validators_hash.as_bytes().to_vec())
+        //             .push_bind(block.header.next_validators_hash.as_bytes().to_vec())
+        //             .push_bind(block.header.consensus_hash.as_bytes().to_vec())
+        //             .push_bind(block.header.app_hash.to_string())
+        //             .push_bind(
+        //                 block
+        //                     .header
+        //                     .last_results_hash
+        //                     .map(|lrh| lrh.as_bytes().to_vec()),
+        //             )
+        //             .push_bind(block.header.evidence_hash.map(|eh| eh.as_bytes().to_vec()))
+        //             .push_bind(block.header.proposer_address.to_string())
+        //             .push_bind(block.last_commit.as_ref().map(|c| c.height.value() as i32))
+        //             .push_bind(block.last_commit.as_ref().map(|c| c.round.value() as i32))
+        //             .push_bind(
+        //                 block
+        //                     .last_commit
+        //                     .as_ref()
+        //                     .map(|c| c.block_id.hash.as_bytes().to_vec()),
+        //             )
+        //             .push_bind(
+        //                 block
+        //                     .last_commit
+        //                     .as_ref()
+        //                     .map(|c| c.block_id.part_set_header.total as i32),
+        //             )
+        //             .push_bind(
+        //                 block
+        //                     .last_commit
+        //                     .as_ref()
+        //                     .map(|c| c.block_id.part_set_header.hash.as_bytes().to_vec()),
+        //             );
+        //     })
+        //     .build();
+
+        // query_block.execute(&mut *sqlx_tx).await?;
+        sqlx_tx.copy_in_raw(&statement).await?;
 
         let evidence_list = RawEvidenceList::from(block.evidence().clone());
         Self::save_evidences(evidence_list, &block_id, sqlx_tx, network).await?;
