@@ -58,6 +58,8 @@ pub enum Error {
     Generic(Box<dyn StdError + Send>),
     #[error("ParseInt error")]
     ParseIntError(#[from] ParseIntError),
+    #[error("Fail COPY IN")]
+    FailCopyIn,
 }
 
 impl From<SendError<tendermint::Block>> for Error {

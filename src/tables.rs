@@ -15,7 +15,7 @@ pub fn get_create_block_table_query(network: &str) -> String {
         header_validators_hash BYTEA NOT NULL,
         header_next_validators_hash BYTEA NOT NULL,
         header_consensus_hash BYTEA NOT NULL,
-        header_app_hash TEXT NOT NULL,
+        header_app_hash TEXT,
         header_last_results_hash BYTEA,
         header_evidence_hash BYTEA,
         header_proposer_address TEXT NOT NULL,

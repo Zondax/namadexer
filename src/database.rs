@@ -128,41 +128,12 @@ impl Database {
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
     ) -> Result<(), Error> {
-        // let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-        //     "INSERT INTO {}.blocks(
-        //         block_id,
-        //         header_version_app,
-        //         header_version_block,
-        //         header_chain_id,
-        //         header_height,
-        //         header_time,
-        //         header_last_block_id_hash,
-        //         header_last_block_id_parts_header_total,
-        //         header_last_block_id_parts_header_hash,
-        //         header_last_commit_hash,
-        //         header_data_hash,
-        //         header_validators_hash,
-        //         header_next_validators_hash,
-        //         header_consensus_hash,
-        //         header_app_hash,
-        //         header_last_results_hash,
-        //         header_evidence_hash,
-        //         header_proposer_address,
-        //         commit_height,
-        //         commit_round,
-        //         commit_block_id_hash,
-        //         commit_block_id_parts_header_total,
-        //         commit_block_id_parts_header_hash
-        //     )",
-        //     network
-        // ));
+        let mut copy_in_block = sqlx_tx.copy_in_raw(&format!("COPY {}.blocks FROM stdin (DELIMITER ',', NULL '')", network)).await?;
 
         let block_id = block.header.hash().as_bytes().to_vec();
 
         let statement = format!(
-            "COPY {}.blocks FROM stdin (DELIMITER ',') 
-            \\\\x{},{},{},{},{},{},\\\\x{},{},\\\\x{},\\\\x{},\\\\x{},\\\\x{},\\\\x{},\\\\x{},{},\\\\x{},\\\\x{},{},{},{},\\\\x{},{},\\\\x{}",
-            network,
+            "\\\\x{},{},{},{},{},{},\\\\x{},{},\\\\x{},\\\\x{},\\\\x{},\\\\x{},\\\\x{},\\\\x{},{},\\\\x{},\\\\x{},{},{},{},\\\\x{},{},\\\\x{}",
             hex::encode(&block_id),
             block.header.version.app,
             block.header.version.block,
@@ -188,77 +159,11 @@ impl Database {
             block.last_commit.as_ref().map_or("".to_string(), |c| hex::encode(c.block_id.part_set_header.hash.as_bytes().to_vec())),
         );
 
+        copy_in_block.send(statement.as_bytes()).await?;
+        let row_count = copy_in_block.finish().await?;
 
-        // let query_block = query_builder
-        //     .push_values(std::iter::once(0), |mut b, _| {
-        //         b.push_bind(block_id.clone())
-        //             .push_bind(block.header.version.app as i32)
-        //             .push_bind(block.header.version.block as i32)
-        //             .push_bind(block.header.chain_id.as_str())
-        //             .push_bind(block.header.height.value() as i32)
-        //             .push_bind(block.header.time.to_rfc3339())
-        //             .push_bind(
-        //                 block
-        //                     .header
-        //                     .last_block_id
-        //                     .map(|id| id.hash.as_bytes().to_vec()),
-        //             )
-        //             .push_bind(
-        //                 block
-        //                     .header
-        //                     .last_block_id
-        //                     .map(|id| id.part_set_header.total as i32),
-        //             )
-        //             .push_bind(
-        //                 block
-        //                     .header
-        //                     .last_block_id
-        //                     .map(|id| id.part_set_header.hash.as_bytes().to_vec()),
-        //             )
-        //             .push_bind(
-        //                 block
-        //                     .header
-        //                     .last_commit_hash
-        //                     .map(|lch| lch.as_bytes().to_vec()),
-        //             )
-        //             .push_bind(block.header.data_hash.map(|dh| dh.as_bytes().to_vec()))
-        //             .push_bind(block.header.validators_hash.as_bytes().to_vec())
-        //             .push_bind(block.header.next_validators_hash.as_bytes().to_vec())
-        //             .push_bind(block.header.consensus_hash.as_bytes().to_vec())
-        //             .push_bind(block.header.app_hash.to_string())
-        //             .push_bind(
-        //                 block
-        //                     .header
-        //                     .last_results_hash
-        //                     .map(|lrh| lrh.as_bytes().to_vec()),
-        //             )
-        //             .push_bind(block.header.evidence_hash.map(|eh| eh.as_bytes().to_vec()))
-        //             .push_bind(block.header.proposer_address.to_string())
-        //             .push_bind(block.last_commit.as_ref().map(|c| c.height.value() as i32))
-        //             .push_bind(block.last_commit.as_ref().map(|c| c.round.value() as i32))
-        //             .push_bind(
-        //                 block
-        //                     .last_commit
-        //                     .as_ref()
-        //                     .map(|c| c.block_id.hash.as_bytes().to_vec()),
-        //             )
-        //             .push_bind(
-        //                 block
-        //                     .last_commit
-        //                     .as_ref()
-        //                     .map(|c| c.block_id.part_set_header.total as i32),
-        //             )
-        //             .push_bind(
-        //                 block
-        //                     .last_commit
-        //                     .as_ref()
-        //                     .map(|c| c.block_id.part_set_header.hash.as_bytes().to_vec()),
-        //             );
-        //     })
-        //     .build();
-
-        // query_block.execute(&mut *sqlx_tx).await?;
-        sqlx_tx.copy_in_raw(&statement).await?;
+        println!("saved block : {}", row_count);
+        println!("Evidences save");
 
         let evidence_list = RawEvidenceList::from(block.evidence().clone());
         Self::save_evidences(evidence_list, &block_id, sqlx_tx, network).await?;
@@ -343,18 +248,6 @@ impl Database {
     ) -> Result<(), Error> {
         info!("saving evidences");
 
-        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-            "INSERT INTO {}.evidences(
-                    block_id,
-                    height,
-                    time,
-                    address,
-                    total_voting_power,
-                    validator_power
-            )",
-            network
-        ));
-
         let instant = tokio::time::Instant::now();
 
         // Same as transactions regarding limitations in field binding
@@ -401,40 +294,38 @@ impl Database {
             return Ok(());
         }
 
-        let res = query_builder
-            .push_values(
-                evidences_data.into_iter(),
-                |mut b, (block_id, height, time, address, total_voting_power, validator_power)| {
-                    b.push_bind(block_id)
-                        .push_bind(height)
-                        .push_bind(time)
-                        .push_bind(address)
-                        .push_bind(total_voting_power)
-                        .push_bind(validator_power);
-                },
-            )
-            .build()
-            .execute(&mut *sqlx_tx)
-            .await
-            .map(|_| ())
-            .map_err(Error::from);
+        let mut statement: String = String::new();
+        for (block_id, height, time, address, total_voting_power, validator_power) in evidences_data.into_iter() {
+            statement.push_str(&format!("\\\\x{},{},{},\\\\x{},{},{}\n",
+                hex::encode(block_id),
+                height.map_or("".to_string(), |h| h.to_string()),
+                time.map_or("".to_string(), |t| t.to_string()),
+                hex::encode(address.map_or(vec![], |a| a)),
+                total_voting_power,
+                validator_power,    
+            ));
+        };
+
+        println!("Trying to create copy_in");
+        let mut copy_in_evidences = sqlx_tx.copy_in_raw(&format!("COPY {}.evidences FROM stdin (DELIMITER ',', NULL '')", network)).await?;
+        println!("{}", &statement);
+        copy_in_evidences.send(statement.as_bytes()).await?;
+        let row_count = copy_in_evidences.finish().await?;
 
         let dur = instant.elapsed();
 
-        let mut status = "Ok".to_string();
-        if let Err(e) = &res {
-            status = e.to_string();
+        if row_count as usize != num_evidences {
+            return Err(Error::FailCopyIn);
         }
 
         let labels = [
             ("bulk_insert", "evidences".to_string()),
-            ("status", status),
             ("num_evidences", num_evidences.to_string()),
         ];
 
         histogram!(DB_SAVE_EVDS_DURATION, dur.as_secs_f64() * 1000.0, &labels);
 
-        res
+        Ok(())
     }
 
     /// Save all the transactions in txs, it is up to the caller to
@@ -450,6 +341,7 @@ impl Database {
     ) -> Result<(), Error> {
         // use for metrics
         let instant = tokio::time::Instant::now();
+        
 
         if txs.is_empty() {
             let labels = [
@@ -465,24 +357,10 @@ impl Database {
         }
 
         info!(message = "Saving transactions");
-        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-            "INSERT INTO {}.transactions(
-                    hash, 
-                    block_id, 
-                    tx_type,
-                    code,
-                    data
-                )",
-            network
-        ));
-
-        // this will holds tuples (hash, block_id, tx_type, code, data)
-        // in order to push txs.len at once in a single query.
-        // the limit for bind values in postgres is 65535 values, that means that
-        // to hit that limit a block would need to have:
-        // n_tx = 65535/5 = 13107
-        // being 5 the number of columns.
-        let mut tx_values = Vec::with_capacity(txs.len());
+        let mut tx_values = String::new();
+        let mut tx_transfer = String::new();
+        let mut tx_bond = String::new();
+        let mut tx_bridge_pool = String::new();
 
         for t in txs.iter() {
             let tx = proto::Tx::try_from(t.as_slice()).map_err(|_| Error::InvalidTxData)?;
@@ -508,90 +386,114 @@ impl Database {
                         let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let transfer = token::Transfer::try_from_slice(&data[..])?;
 
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.tx_transfer(
-                                tx_id,
-                                source, 
-                                target, 
-                                token,
-                                amount,
-                                key,
-                                shielded
-                            )",
-                            network
-                        ));
+                        // let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                        //     "INSERT INTO {}.tx_transfer(
+                        //         tx_id,
+                        //         source, 
+                        //         target, 
+                        //         token,
+                        //         amount,
+                        //         key,
+                        //         shielded
+                        //     )",
+                        //     network
+                        // ));
 
-                        let query = query_builder
-                            .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(tx.header_hash().0.as_slice().to_vec())
-                                    .push_bind(transfer.source.to_string())
-                                    .push_bind(transfer.target.to_string())
-                                    .push_bind(transfer.token.to_string())
-                                    .push_bind(transfer.amount.to_string())
-                                    .push_bind(transfer.key.as_ref().map(|k| k.to_string()))
-                                    .push_bind(transfer.shielded.as_ref().map(|s| s.to_vec()));
-                            })
-                            .build();
-                        query.execute(&mut *sqlx_tx).await?;
+                        // let query = query_builder
+                        //     .push_values(std::iter::once(0), |mut b, _| {
+                        //         b.push_bind(tx.header_hash().0.as_slice().to_vec())
+                        //             .push_bind(transfer.source.to_string())
+                        //             .push_bind(transfer.target.to_string())
+                        //             .push_bind(transfer.token.to_string())
+                        //             .push_bind(transfer.amount.to_string())
+                        //             .push_bind(transfer.key.as_ref().map(|k| k.to_string()))
+                        //             .push_bind(transfer.shielded.as_ref().map(|s| s.to_vec()));
+                        //     })
+                        //     .build();
+                        // query.execute(&mut *sqlx_tx).await?;
+
+                        tx_transfer.push_str(&format!("\\\\x{},{},{},{},{},{},\\\\x{}\n",
+                            hex::encode(tx.header_hash().0.as_slice()),
+                            transfer.source.to_string(),
+                            transfer.target.to_string(),
+                            transfer.token.to_string(),
+                            transfer.amount.to_string(),
+                            transfer.key.as_ref().map_or("".to_string(), |k| k.to_string()),
+                            hex::encode(transfer.shielded.as_ref().map_or(vec![],|s| s.to_vec())),
+                        ))
                     }
                     "tx_bond" => {
                         info!("Saving tx_bond");
                         let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let bond = transaction::pos::Bond::try_from_slice(&data[..])?;
 
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.tx_bond(
-                                tx_id,
-                                validator,
-                                amount,
-                                source,
-                                bond
-                            )",
-                            network
-                        ));
+                        // let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                        //     "INSERT INTO {}.tx_bond(
+                        //         tx_id,
+                        //         validator,
+                        //         amount,
+                        //         source,
+                        //         bond
+                        //     )",
+                        //     network
+                        // ));
 
-                        let query = query_builder
-                            .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(tx.header_hash().0.as_slice().to_vec())
-                                    .push_bind(bond.validator.to_string())
-                                    .push_bind(bond.amount.to_string_native())
-                                    .push_bind(bond.source.as_ref().map(|s| s.to_string()))
-                                    .push_bind(true);
-                            })
-                            .build();
-                        query.execute(&mut *sqlx_tx).await?;
+                        // let query = query_builder
+                        //     .push_values(std::iter::once(0), |mut b, _| {
+                        //         b.push_bind(tx.header_hash().0.as_slice().to_vec())
+                        //             .push_bind(bond.validator.to_string())
+                        //             .push_bind(bond.amount.to_string_native())
+                        //             .push_bind(bond.source.as_ref().map(|s| s.to_string()))
+                        //             .push_bind(true);
+                        //     })
+                        //     .build();
+                        // query.execute(&mut *sqlx_tx).await?;
+
+                        tx_bond.push_str(&format!("\\\\x{},{},{},{},TRUE\n",
+                            hex::encode(tx.header_hash().0.as_slice()),
+                            bond.validator.to_string(),
+                            bond.amount.to_string_native(),
+                            bond.source.as_ref().map_or("".to_string(), |s| s.to_string())
+                        ))
                     }
                     "tx_unbond" => {
                         info!("Saving tx_unbond");
                         let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let unbond = transaction::pos::Unbond::try_from_slice(&data[..])?;
 
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.tx_bond(
-                                tx_id,
-                                validator,
-                                amount,
-                                source,
-                                bond
-                            )",
-                            network
-                        ));
+                        // let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                        //     "INSERT INTO {}.tx_bond(
+                        //         tx_id,
+                        //         validator,
+                        //         amount,
+                        //         source,
+                        //         bond
+                        //     )",
+                        //     network
+                        // ));
 
-                        let query = query_builder
-                            .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(tx.header_hash().0.as_slice().to_vec())
-                                    .push_bind(unbond.validator.to_string())
-                                    .push_bind(unbond.amount.to_string_native())
-                                    .push_bind(
-                                        unbond
-                                            .source
-                                            .as_ref()
-                                            .map_or("".to_string(), |s| s.to_string()),
-                                    )
-                                    .push_bind(false);
-                            })
-                            .build();
-                        query.execute(&mut *sqlx_tx).await?;
+                        // let query = query_builder
+                        //     .push_values(std::iter::once(0), |mut b, _| {
+                        //         b.push_bind(tx.header_hash().0.as_slice().to_vec())
+                        //             .push_bind(unbond.validator.to_string())
+                        //             .push_bind(unbond.amount.to_string_native())
+                        //             .push_bind(
+                        //                 unbond
+                        //                     .source
+                        //                     .as_ref()
+                        //                     .map_or("".to_string(), |s| s.to_string()),
+                        //             )
+                        //             .push_bind(false);
+                        //     })
+                        //     .build();
+                        // query.execute(&mut *sqlx_tx).await?;
+
+                        tx_bond.push_str(&format!("\\\\x{},{},{},{},False\n",
+                            hex::encode(tx.header_hash().0.as_slice()),
+                            unbond.validator.to_string(),
+                            unbond.amount.to_string_native(),
+                            unbond.source.as_ref().map_or("".to_string(), |s| s.to_string())
+                        ));
                     }
                     // this is an ethereum transaction
                     "tx_bridge_pool" => {
@@ -600,85 +502,88 @@ impl Database {
                         // Only TransferToEthereum type is supported at the moment by namada and us.
                         let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
 
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.tx_bridge_pool(
-                                tx_id,
-                                asset,
-                                recipient,
-                                sender,
-                                amount,
-                                gas_amount,
-                                payer
-                            )",
-                            network
-                        ));
+                        // let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                        //     "INSERT INTO {}.tx_bridge_pool(
+                        //         tx_id,
+                        //         asset,
+                        //         recipient,
+                        //         sender,
+                        //         amount,
+                        //         gas_amount,
+                        //         payer
+                        //     )",
+                        //     network
+                        // ));
 
-                        let query = query_builder
-                            .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(tx.header_hash().0.as_slice().to_vec())
-                                    .push_bind(tx_bridge.transfer.asset.to_string())
-                                    .push_bind(tx_bridge.transfer.recipient.to_string())
-                                    .push_bind(tx_bridge.transfer.sender.to_string())
-                                    .push_bind(tx_bridge.transfer.amount.to_string_native())
-                                    .push_bind(tx_bridge.gas_fee.amount.to_string_native())
-                                    .push_bind(tx_bridge.gas_fee.payer.to_string())
-                                    .push_bind(false);
-                            })
-                            .build();
-                        query.execute(&mut *sqlx_tx).await?;
+                        // let query = query_builder
+                        //     .push_values(std::iter::once(0), |mut b, _| {
+                        //         b.push_bind(tx.header_hash().0.as_slice().to_vec())
+                        //             .push_bind(tx_bridge.transfer.asset.to_string())
+                        //             .push_bind(tx_bridge.transfer.recipient.to_string())
+                        //             .push_bind(tx_bridge.transfer.sender.to_string())
+                        //             .push_bind(tx_bridge.transfer.amount.to_string_native())
+                        //             .push_bind(tx_bridge.gas_fee.amount.to_string_native())
+                        //             .push_bind(tx_bridge.gas_fee.payer.to_string())
+                        //             .push_bind(false);
+                        //     })
+                        //     .build();
+                        // query.execute(&mut *sqlx_tx).await?;
+
+                        tx_bridge_pool.push_str(&format!("\\\\x{},{},{},{},{},{},{}\n",
+                            hex::encode(tx.header_hash().0.as_slice()),
+                            tx_bridge.transfer.asset.to_string(),
+                            tx_bridge.transfer.recipient.to_string(),
+                            tx_bridge.transfer.sender.to_string(),
+                            tx_bridge.transfer.amount.to_string_native(),
+                            tx_bridge.gas_fee.amount.to_string_native(),
+                            tx_bridge.gas_fee.payer.to_string(),
+                        ))
                     }
                     _ => {}
                 }
             }
 
-            tx_values.push((
-                tx.header_hash().0.as_slice().to_vec(),
-                block_id.to_vec(),
+            tx_values.push_str(&format!("\\\\x{},\\\\x{},{},\\\\x{},\\\\x{}\n",
+                hex::encode(tx.header_hash().0.as_slice()),
+                hex::encode(block_id.to_vec()),
                 utils::tx_type_name(&tx.header.tx_type),
-                code,
-                tx.data().map(|v| v.to_vec()),
+                hex::encode(code),
+                hex::encode(tx.data().map_or(vec![], |v| v.to_vec())),
             ));
         }
 
-        let num_transactions = tx_values.len();
-
-        // bulk insert to speed-up this
-        // there might be limits regarding the number of parameter
-        // but number of transaction is low in comparisson with
-        // postgres limit
-        let res = query_builder
-            .push_values(
-                tx_values.into_iter(),
-                |mut b, (hash, block_id, tx_type, code, data)| {
-                    b.push_bind(hash)
-                        .push_bind(block_id)
-                        .push_bind(tx_type)
-                        .push_bind(code)
-                        .push_bind(data);
-                },
-            )
-            .build()
-            .execute(&mut *sqlx_tx)
-            .await
-            .map(|_| ())
-            .map_err(Error::from);
-
+        let num_transactions = txs.len();
         let dur = instant.elapsed();
 
-        let mut status = "Ok".to_string();
-        if let Err(e) = &res {
-            status = e.to_string();
+        let mut copy_in_transactions = sqlx_tx.copy_in_raw(&format!("COPY {}.transactions FROM stdin (DELIMITER ',', NULL '')", network)).await?;
+        copy_in_transactions.send(tx_values.as_bytes()).await?;
+        let count_row = copy_in_transactions.finish().await?;
+
+        if count_row as usize != num_transactions {
+            println!("{} {}", count_row, num_transactions);
+            return Err(Error::FailCopyIn);
         }
+
+        let mut copy_in_tx_transfer = sqlx_tx.copy_in_raw(&format!("COPY {}.tx_transfer FROM stdin (DELIMITER ',', NULL '')", network)).await?;
+        copy_in_tx_transfer.send(tx_transfer.as_bytes()).await?;
+        let _ = copy_in_tx_transfer.finish().await?;
+
+        let mut copy_in_tx_bond = sqlx_tx.copy_in_raw(&format!("COPY {}.tx_bond FROM stdin (DELIMITER ',', NULL '')", network)).await?;
+        copy_in_tx_bond.send(tx_bond.as_bytes()).await?;
+        let _ = copy_in_tx_bond.finish().await?;
+
+        let mut copy_in_tx_bridge_pool = sqlx_tx.copy_in_raw(&format!("COPY {}.tx_transfer FROM stdin (DELIMITER ',', NULL '')", network)).await?;
+        copy_in_tx_bridge_pool.send(tx_bridge_pool.as_bytes()).await?;
+        let _ = copy_in_tx_bridge_pool.finish().await?;
 
         let labels = [
             ("bulk_insert", "transactions".to_string()),
-            ("status", status),
             ("num_transactions", num_transactions.to_string()),
         ];
 
         histogram!(DB_SAVE_TXS_DURATION, dur.as_secs_f64() * 1000.0, &labels);
 
-        res
+        Ok(())
     }
 
     pub async fn create_indexes(&self) -> Result<(), Error> {
