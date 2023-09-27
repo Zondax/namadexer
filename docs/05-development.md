@@ -1,7 +1,7 @@
-# Deployment
+# Development
 
 
-The full project can be deployed using the example `docker-compose.yml` file found under `./contrib`.
+The full project can be run using the example `docker-compose.yml` file found under `./contrib`.
 
 ```yml
 version: '3'
@@ -55,7 +55,7 @@ $ docker compose -f contrib/docker-compose.yml up --build
 
 ## Monitoring
 
-In addition, prometheus and grafana can be deployed to collect logs if the feature is activated. The docker compose file can be found under `./contrib/prometheus-compose.yml`.
+In addition, prometheus and grafana can be used to collect logs if the feature is activated. The docker compose file can be found under `./contrib/prometheus-compose.yml`.
 
 More info in the [telemetry](./telemetry.md) section.
 
