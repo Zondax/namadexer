@@ -3,7 +3,7 @@ deployment:
   enabled: true
   image:
     repository: zondax/namadexer
-    tag: dev
+    tag: main
     pullPolicy: Always
   env:
     RUST_LOG:
