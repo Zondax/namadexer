@@ -1,8 +1,8 @@
 log_level = "info"
-network = "public-testnet-12"
+network = "public-testnet-14"
 
 [database]
-host = "postgres"
+host = "0.0.0.0:5435"
 user = "postgres"
 password = "wow"
 dbname = "blockchain"
@@ -16,7 +16,7 @@ serve_at = "0.0.0.0"
 port = 30303
 
 [indexer]
-tendermint_addr = "127.0.0.1"
+tendermint_addr = "63.32.210.222"
 port = 26657
 
 [jaeger]

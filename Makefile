@@ -1,6 +1,6 @@
 #!/bin/sh
 
-NAMADA_VERSION := 0.21.1
+NAMADA_VERSION := 0.23.0
 BASE_URL := https://raw.githubusercontent.com/anoma/namada
 URL := $(BASE_URL)/v$(NAMADA_VERSION)/wasm/checksums.json
 
@@ -15,6 +15,18 @@ else
 $(error Neither curl nor wget are available on your system)
 endif
 
+# Determine the OS and set the appropriate value for OS
+UNAME := $(shell uname)
+ifeq ($(UNAME),Linux)
+    OS := linux
+endif
+ifeq ($(UNAME),Darwin)
+    OS := osx
+endif
+
+# Set a default value for OS if it's not recognized
+OS ?= linux
+
 download-checksum:
 	@if [ ! -f checksums.json ]; then \
 		echo $(URL); \
@@ -22,9 +34,10 @@ download-checksum:
 	fi
 
 install-deps:
-	# We need a specific protoc version
-	$(DOWNLOAD_CMD) https://github.com/protocolbuffers/protobuf/releases/download/v3.16.3/protoc-3.16.3-linux-x86_64.zip
-	unzip protoc-3.16.3-linux-x86_64.zip -d ./protoc
+	# Use OS variable in the download URL and unzip command
+	$(DOWNLOAD_CMD) https://github.com/protocolbuffers/protobuf/releases/download/v3.16.3/protoc-3.16.3-$(OS)-x86_64.zip
+	unzip protoc-3.16.3-$(OS)-x86_64.zip -d ./protoc
+
 
 postgres:
 	docker run --name postgres -e POSTGRES_PASSWORD=wow -e POSTGRES_DB=blockchain -p 5432:5432 -d postgres
