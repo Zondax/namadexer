@@ -1,0 +1,95 @@
+applicationName: indexer
+deployment:
+  enabled: true
+  image:
+    repository: zondax/namadexer
+    tag: main
+    pullPolicy: Always
+  env:
+    RUST_LOG:
+      value: "namada_prototype=debug"
+    INDEXER_CONFIG_PATH:
+      value: "/app/config/Settings.toml"
+  command: ["/bin/bash"]
+  args: ["-c", " /usr/local/bin/indexer"]
+  resources:
+    limits:
+      cpu: 2
+      memory: 2Gi
+    requests:
+      cpu: 0.5
+      memory: 512Mi
+  securityContext:
+    runAsNonRoot: false
+  containerSecurityContext:
+    readOnlyRootFilesystem: false
+    runAsNonRoot: false
+  ports:
+    - name: prometheus
+      containerPort: 9000
+      hostPort: 9000
+
+  # Volumes to be added to the pod
+  volumes:
+    app-setting:
+      configMap:
+        name: '{{ template "application.name" . }}-settings'
+
+  # Mount path for Volumes
+  volumeMounts:
+    app-setting:
+       mountPath: /app/config
+
+service:
+  enabled: true
+  ports:
+    - port: 9000
+      name: prometheus
+      protocol: TCP
+      targetPort: 9000
+  type: ClusterIP
+
+serviceMonitor:
+  enabled: true
+  endpoints:
+    - interval: 5s
+      path: /
+      port: 9000
+
+  # volume-name-2:
+  #    mountPath: path-2
+configMap:
+  enabled: true
+  files:
+    settings:
+      Settings.toml: |
+        log_level = "info"
+        network = "public-testnet-14"
+    
+        [database]
+        host = "database url"
+        user = "postgres"
+        password = "<db-password>"
+        dbname = "namada"
+        # Optional field to configure a timeout if database connection 
+        # fails.
+        connection_timeout = 20
+        
+        
+        [server]
+        serve_at = "0.0.0.0"
+        port = 30303
+        
+        [indexer]
+        tendermint_addr = "tendermint namada node url"
+        port = 26657
+        
+        [jaeger]
+        enable = false
+        host = "localhost"
+        port = 6831
+        
+        [prometheus]
+        host = "0.0.0.0"
+        port = 9000
+
