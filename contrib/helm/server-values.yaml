@@ -65,7 +65,7 @@ configMap:
     settings:
       Settings.toml: |
         log_level = "info"
-        network = "public-testnet-12"
+        network = "public-testnet-14"
         
         [database]
         host = "database url"
