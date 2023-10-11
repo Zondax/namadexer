@@ -8,8 +8,6 @@ on:
       - main
       - master
       - dev
-  pull_request:
-    branches: ["*"]
   release:
     types:
       - created
@@ -59,13 +57,6 @@ jobs:
 
       - name: Earthly version
         run: earthly --version
-
-      - name: Run build (PR)
-        # Based on https://docs.github.com/en/actions/learn-github-actions/contexts#example-usage-of-the-github-context
-        if: ${{ github.event_name == 'pull_request' }}
-        env:
-          EARTHLY_PUSH: False
-        run: earthly --ci +all
 
       - name: Run build (branch) and publish
         if: ${{ github.event_name != 'pull_request' }}
