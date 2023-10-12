@@ -142,7 +142,7 @@ impl Settings {
 
             // verify if network is correct
             if settings.network.contains('.') {
-                panic!("network cannot contains '.' (example of valid network 'public-testnet-12')")
+                panic!("network cannot contains '.' (example of valid network 'public-testnet-14')")
             }
 
             return Ok(settings);

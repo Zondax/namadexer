@@ -16,7 +16,7 @@ mod save_block {
         let data = fs::read_to_string("./tests/blocks_vector.json").unwrap();
         let blocks: Vec<Block> = serde_json::from_str(&data).unwrap();
 
-        let db = Database::new(config, "public-testnet-12").await.unwrap();
+        let db = Database::new(config, "public-testnet-14").await.unwrap();
         db.create_tables().await.unwrap();
 
         for block in blocks {
@@ -29,7 +29,7 @@ mod save_block {
         let config = Settings::new().unwrap();
         let config = config.database_config();
 
-        let db = Database::new(config, "public-testnet-12").await.unwrap();
+        let db = Database::new(config, "public-testnet-14").await.unwrap();
 
         db.create_indexes().await.unwrap();
     }
