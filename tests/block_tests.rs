@@ -90,7 +90,7 @@ mod block_tests {
         let address = format!("http://{}:{}", addr.ip(), addr.port());
         let hc = httpc_test::new_client(address).expect("Server not running?");
         let response = hc
-            .do_get("/block/hash/131f6c7727c64c785cd8b255ef35860fd021bff2a612c88e0ab19d05678021c6")
+            .do_get("/block/hash/8f2607e4bb95b974b3fb3168fdac2e81f9ea9417430548a47ab61e138ca2260b")
             .await
             .expect("Block does not exist");
 
