@@ -862,10 +862,7 @@ impl Database {
     #[instrument(skip(self))]
     /// Returns info about the indexes existing on the table, otherwise returns an Error.
     pub async fn check_indexes(&self) -> Result<Vec<Row>, Error> {
-        let str = format!(
-            "SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '{BLOCKS_TABLE_NAME}';",
-            self.network
-        );
+        let str = format!("SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '{BLOCKS_TABLE_NAME}';");
 
         query(&str)
             .fetch_all(&*self.pool)
