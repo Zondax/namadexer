@@ -9,7 +9,7 @@ const ENV_VAR_NAME: &str = "INDEXER_CONFIG_PATH";
 pub const SERVER_ADDR: &str = "127.0.0.1";
 pub const SERVER_PORT: u16 = 30303;
 
-pub const TENDERMINT_ADDR: &str = "127.0.0.1";
+pub const TENDERMINT_ADDR: &str = "http://127.0.0.1";
 pub const INDEXER_PORT: u16 = 27657;
 
 pub const JAEGER_HOST: &str = "localhost";

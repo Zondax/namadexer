@@ -20,7 +20,7 @@ dbname = "blockchain"
 
 # The tendermint RPC address and port to access the Namada node
 [indexer]
-tendermint_addr = "127.0.0.1"
+tendermint_addr = "http://127.0.0.1"
 port = 26657
 ```
 
