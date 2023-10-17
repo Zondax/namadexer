@@ -767,7 +767,6 @@ impl Database {
         .execute(&*self.pool)
         .await?;
 
-
         query(
             format!(
                 "CREATE INDEX x_validator_bond ON {}.tx_bond (validator);",
