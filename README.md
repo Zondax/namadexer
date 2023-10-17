@@ -20,7 +20,7 @@ You can find more information about the indexer in the [`./docs`](./docs/) folde
 
 ## Dev
 
-You will need access to a namada node and inform its tendermint rpc host and port in the `Settings.toml` file.
+You will need access to a namada node and inform its tendermint rpc host and port in the `Settings.toml` file. You can use the `Settings.example.toml` as a template.
 
 ### Dev dependencies
 
