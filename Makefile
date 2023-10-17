@@ -40,16 +40,16 @@ install-deps:
 
 
 postgres:
-	docker run --name postgres -e POSTGRES_PASSWORD=wow -e POSTGRES_DB=blockchain -p 5432:5432 -d postgres
+	docker run --name postgres -e POSTGRES_PASSWORD=wow -e POSTGRES_DB=blockchain -p 5432:5432 -d postgres:14
 
 build: download-checksum
 	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" cargo build --features prometheus
 
 run_indexer: download-checksum
-	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" RUST_LOG="namadexer=info" cargo r --release --bin indexer --features prometheus
+	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" cargo r --bin indexer
 
 run_server: download-checksum
-	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" RUST_LOG="namadexer=info" cargo r --release  --bin server --features prometheus
+	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" cargo r --bin server
 
 benchmarks: download-checksum 
 	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" cargo bench 
