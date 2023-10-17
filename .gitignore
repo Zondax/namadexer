@@ -6,3 +6,4 @@ protoc/*
 /monitoring/grafana/data
 checksums.*
 .idea
+config/Settings.toml
