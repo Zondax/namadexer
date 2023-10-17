@@ -16,7 +16,7 @@ serve_at = "0.0.0.0"
 port = 30303
 
 [indexer]
-tendermint_addr = "194.163.180.253"
+tendermint_addr = "127.0.0.1"
 port = 26657
 
 [jaeger]
