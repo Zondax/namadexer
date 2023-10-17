@@ -144,11 +144,11 @@ pub async fn start_indexing(db: Database, config: &IndexerConfig) -> Result<(), 
     info!("Connecting to {}", fmt_addr);
     let client = HttpClient::new(fmt_addr.as_str())?;
 
-    // /********************
-    //  *
-    //  *  Start indexing
-    //  *
-    //  ********************/
+    /********************
+     *
+     *  Start indexing
+     *
+     ********************/
     let latest_block = client.latest_block().await?;
     info!("Current block tip {}", &latest_block.block.header.height);
 
