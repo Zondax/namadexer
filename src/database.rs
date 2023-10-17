@@ -699,7 +699,7 @@ impl Database {
 
         query(
             format!(
-                "CREATE INDEX x_source_transfer ON {}.tx_transfer USING HASH (source);",
+                "ALTER TABLE {0}.tx_transfer ADD CONSTRAINT fk_tx_id FOREIGN KEY (tx_id) REFERENCES {0}.transactions (hash);",
                 self.network
             )
             .as_str(),
@@ -709,7 +709,17 @@ impl Database {
 
         query(
             format!(
-                "CREATE INDEX x_target_transfer ON {}.tx_transfer USING HASH (target);",
+                "CREATE INDEX x_source_transfer ON {}.tx_transfer (source);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
+
+        query(
+            format!(
+                "CREATE INDEX x_target_transfer ON {}.tx_transfer (target);",
                 self.network
             )
             .as_str(),
@@ -729,6 +739,16 @@ impl Database {
 
         query(
             format!(
+                "ALTER TABLE {0}.tx_bond ADD CONSTRAINT fk_tx_id FOREIGN KEY (tx_id) REFERENCES {0}.transactions (hash);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
+
+        query(
+            format!(
                 "ALTER TABLE {}.tx_bridge_pool ADD CONSTRAINT pk_tx_id_bridge PRIMARY KEY (tx_id);",
                 self.network
             )
@@ -739,7 +759,18 @@ impl Database {
 
         query(
             format!(
-                "CREATE INDEX x_validator_bond ON {}.tx_bond USING HASH (validator);",
+                "ALTER TABLE {0}.tx_bridge_pool ADD CONSTRAINT fk_tx_id FOREIGN KEY (tx_id) REFERENCES {0}.transactions (hash);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
+
+
+        query(
+            format!(
+                "CREATE INDEX x_validator_bond ON {}.tx_bond (validator);",
                 self.network
             )
             .as_str(),
@@ -749,7 +780,7 @@ impl Database {
 
         query(
             format!(
-                "CREATE INDEX x_source_bond ON {}.tx_bond USING HASH (source);",
+                "CREATE INDEX x_source_bond ON {}.tx_bond (source);",
                 self.network
             )
             .as_str(),
