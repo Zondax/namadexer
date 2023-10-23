@@ -2,6 +2,7 @@ use crate::{config::DatabaseConfig, error::Error, utils};
 use borsh::de::BorshDeserialize;
 
 use namada::proto;
+use namada::types::key::common::PublicKey;
 use namada::types::{eth_bridge_pool::PendingTransfer, token, transaction, transaction::TxType};
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::{query, QueryBuilder, Transaction};
@@ -62,7 +63,7 @@ impl Database {
 
         Ok(Database {
             pool: Arc::new(pool),
-            network: network_schema.to_string(),
+            network: network_schema,
         })
     }
 
@@ -594,6 +595,14 @@ impl Database {
                             })
                             .build();
                         query.execute(&mut *sqlx_tx).await?;
+                    }
+                    "tx_reveal_pk" => {
+                        // nothing to do here, only check that data is a valid publicKey
+                        // otherwise this transaction must not make it into
+                        // the database.
+                        info!("Saving tx_reveal_pk");
+                        let data = tx.data().ok_or(Error::InvalidTxData)?;
+                        _ = PublicKey::try_from_slice(&data[..])?;
                     }
                     _ => {}
                 }
