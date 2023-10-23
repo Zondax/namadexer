@@ -2,8 +2,13 @@ use crate::{config::DatabaseConfig, error::Error, utils};
 use borsh::de::BorshDeserialize;
 
 use namada::proto;
-use namada::types::key::common::PublicKey;
-use namada::types::{eth_bridge_pool::PendingTransfer, token, transaction, transaction::TxType};
+use namada::types::{
+    address::Address,
+    eth_bridge_pool::PendingTransfer,
+    key::common::PublicKey,
+    token,
+    transaction::{self, TxType},
+};
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::{query, QueryBuilder, Transaction};
 use std::collections::HashMap;
@@ -469,12 +474,12 @@ impl Database {
 
                 let unknown_type = "unknown".to_string();
                 let type_tx = checksums_map.get(&code_hex).unwrap_or(&unknown_type);
+                let data = tx.data().ok_or(Error::InvalidTxData)?;
 
                 // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
                 match type_tx.as_str() {
                     "tx_transfer" => {
                         info!("Saving tx_transfer");
-                        let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let transfer = token::Transfer::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
@@ -505,7 +510,6 @@ impl Database {
                     }
                     "tx_bond" => {
                         info!("Saving tx_bond");
-                        let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let bond = transaction::pos::Bond::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
@@ -532,7 +536,6 @@ impl Database {
                     }
                     "tx_unbond" => {
                         info!("Saving tx_unbond");
-                        let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let unbond = transaction::pos::Unbond::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
@@ -565,7 +568,6 @@ impl Database {
                     // this is an ethereum transaction
                     "tx_bridge_pool" => {
                         info!("Saving tx_bridge_pool");
-                        let data = tx.data().ok_or(Error::InvalidTxData)?;
                         // Only TransferToEthereum type is supported at the moment by namada and us.
                         let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
 
@@ -601,8 +603,12 @@ impl Database {
                         // otherwise this transaction must not make it into
                         // the database.
                         info!("Saving tx_reveal_pk");
-                        let data = tx.data().ok_or(Error::InvalidTxData)?;
                         _ = PublicKey::try_from_slice(&data[..])?;
+                    }
+                    "tx_resign_steward" => {
+                        // Not much to do, just, check that the address this transactions
+                        // holds in the data field is correct, or at least parsed succesfully.
+                        _ = Address::try_from_slice(&data[..])?;
                     }
                     _ => {}
                 }

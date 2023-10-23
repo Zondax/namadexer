@@ -1,5 +1,6 @@
 use crate::error::Error;
 use borsh::BorshDeserialize;
+use namada::types::address::Address;
 use namada::types::{token, transaction};
 use prost::Message;
 use serde::{Deserialize, Serialize};
@@ -34,6 +35,7 @@ pub enum TxDecoded {
     Unbond(transaction::pos::Unbond),
     Withdraw(transaction::pos::Withdraw),
     InitAccount(transaction::account::InitAccount),
+    ResignSteward(Address),
     EthPoolBridge(PendingTransfer),
     Ibc(IbcTx),
 }
@@ -124,9 +126,13 @@ impl TxInfo {
                         transaction::account::InitAccount::try_from_slice(&self.data())
                             .map(TxDecoded::InitAccount)?
                     }
+                    "tx_resign_steward" => {
+                        Address::try_from_slice(&self.data()).map(TxDecoded::ResignSteward)?
+                    }
                     "tx_ibc" => Self::decode_ibc(&self.data()).map(TxDecoded::Ibc)?,
                     "tx_bridge_pool" => PendingTransfer::try_from_slice(&self.data())
                         .map(TxDecoded::EthPoolBridge)?,
+
                     _ => {
                         return Err(Error::InvalidTxData);
                     }
