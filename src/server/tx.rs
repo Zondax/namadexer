@@ -2,11 +2,15 @@ use crate::error::Error;
 use borsh::BorshDeserialize;
 use namada::types::address::Address;
 use namada::types::key::common::PublicKey;
-use namada::types::transaction::account::{InitAccount, UpdateAccount};
-use namada::types::transaction::governance::VoteProposalData;
-use namada::types::transaction::pos::{Bond, Unbond, Withdraw};
-use namada::types::{token, transaction};
-use transaction::pos::InitValidator;
+use namada::types::{
+    token,
+    transaction::{
+        account::{InitAccount, UpdateAccount},
+        governance::VoteProposalData,
+        pgf::UpdateStewardCommission,
+        pos::{Bond, InitValidator, Unbond, Withdraw},
+    },
+};
 
 use prost::Message;
 use serde::{Deserialize, Serialize};
@@ -42,6 +46,7 @@ pub enum TxDecoded {
     InitAccount(InitAccount),
     UpdateAccount(UpdateAccount),
     ResignSteward(Address),
+    UpdateStewardCommission(UpdateStewardCommission),
     EthPoolBridge(PendingTransfer),
     Ibc(IbcTx),
 }
@@ -124,10 +129,17 @@ impl TxInfo {
                     InitAccount::try_from_slice(&self.data()).map(TxDecoded::InitAccount)?
                 }
                 "tx_update_account" => {
+                    // we could need to give users more context here on how the related accound
+                    // has been updated.
                     UpdateAccount::try_from_slice(&self.data()).map(TxDecoded::UpdateAccount)?
                 }
                 "tx_resign_steward" => {
                     Address::try_from_slice(&self.data()).map(TxDecoded::ResignSteward)?
+                }
+                "tx_update_steward_commission" => {
+                    // we could need to give users more context about this update.
+                    UpdateStewardCommission::try_from_slice(&self.data())
+                        .map(TxDecoded::UpdateStewardCommission)?
                 }
                 "tx_ibc" => Self::decode_ibc(&self.data()).map(TxDecoded::Ibc)?,
                 "tx_bridge_pool" => {

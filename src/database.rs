@@ -7,7 +7,7 @@ use namada::types::{
     eth_bridge_pool::PendingTransfer,
     key::common::PublicKey,
     token,
-    transaction::{self, account::UpdateAccount, TxType},
+    transaction::{self, account::UpdateAccount, pgf::UpdateStewardCommission, TxType},
 };
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::{query, QueryBuilder, Transaction};
@@ -609,6 +609,13 @@ impl Database {
                         // Not much to do, just, check that the address this transactions
                         // holds in the data field is correct, or at least parsed succesfully.
                         _ = Address::try_from_slice(&data[..])?;
+                    }
+                    "tx_update_steward_commission" => {
+                        // Not much to do, just, check that the address this transactions
+                        // holds in the data field is correct, or at least parsed succesfully.
+                        // TODO: We might need to create a new table for this?
+                        // so we can tell what account have changed and how?
+                        _ = UpdateStewardCommission::try_from_slice(&data[..])?;
                     }
                     "tx_update_account" => {
                         // check that transaction can be parsed
