@@ -7,7 +7,7 @@ use namada::types::{
     eth_bridge_pool::PendingTransfer,
     key::common::PublicKey,
     token,
-    transaction::{self, TxType},
+    transaction::{self, account::UpdateAccount, TxType},
 };
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::{query, QueryBuilder, Transaction};
@@ -609,6 +609,15 @@ impl Database {
                         // Not much to do, just, check that the address this transactions
                         // holds in the data field is correct, or at least parsed succesfully.
                         _ = Address::try_from_slice(&data[..])?;
+                    }
+                    "tx_update_account" => {
+                        // check that transaction can be parsed
+                        // before storing it into database
+                        // TODO: Later we might need to create a table
+                        // for this . This would allow us
+                        // to track down what accounts have been updated
+                        // and how.
+                        _ = UpdateAccount::try_from_slice(&data[..])?;
                     }
                     _ => {}
                 }
