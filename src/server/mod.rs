@@ -43,9 +43,9 @@ async fn get_tx_hashes(
 ) -> Result<(), Error> {
     let rows = state.db.get_tx_hashes_block(hash).await?;
 
-    let mut tx_hashes: Vec<Vec<u8>> = vec![];
+    let mut tx_hashes: Vec<blocks::HashID> = vec![];
     for row in rows.iter() {
-        let hash: Vec<u8> = row.try_get("hash")?;
+        let hash = blocks::HashID(row.try_get("hash")?);
         tx_hashes.push(hash);
     }
 

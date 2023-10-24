@@ -82,14 +82,19 @@ impl LastCommitInfo {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(transparent)]
+pub struct HashID(
+    #[serde(serialize_with = "serialize_hex", deserialize_with = "from_hex")] pub Vec<u8>,
+);
+
 /// Relevant information regarding blocks
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct BlockInfo {
-    #[serde(serialize_with = "serialize_hex", deserialize_with = "from_hex")]
-    pub block_id: Vec<u8>,
+    pub block_id: HashID,
     pub header: Header,
     pub last_commit: Option<LastCommitInfo>,
-    pub tx_hashes: Vec<Vec<u8>>,
+    pub tx_hashes: Vec<HashID>,
 }
 
 impl From<BlockInfo> for Header {
@@ -236,7 +241,7 @@ impl TryFrom<&Row> for BlockInfo {
         };
 
         Ok(BlockInfo {
-            block_id,
+            block_id: HashID(block_id),
             header,
             last_commit,
             tx_hashes: vec![],
