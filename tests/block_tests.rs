@@ -33,7 +33,7 @@ mod block_tests {
 
         let header = response.json_body_as::<BlockInfo>().unwrap();
 
-        let hash_str = hex::encode(&header.block_id);
+        let hash_str = hex::encode(&header.block_id.0);
 
         // now retrieve same block but by hash:
         let new_header = hc
