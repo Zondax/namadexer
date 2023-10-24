@@ -84,7 +84,9 @@ impl LastCommitInfo {
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(transparent)]
-pub struct HashID(#[serde(serialize_with = "serialize_hex", deserialize_with = "from_hex")] pub Vec<u8>);
+pub struct HashID(
+    #[serde(serialize_with = "serialize_hex", deserialize_with = "from_hex")] pub Vec<u8>,
+);
 
 /// Relevant information regarding blocks
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
