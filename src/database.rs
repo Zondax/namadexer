@@ -7,7 +7,12 @@ use namada::types::{
     eth_bridge_pool::PendingTransfer,
     key::common::PublicKey,
     token,
-    transaction::{self, account::UpdateAccount, pgf::UpdateStewardCommission, TxType},
+    transaction::{
+        self,
+        account::{InitAccount, UpdateAccount},
+        pgf::UpdateStewardCommission,
+        TxType,
+    },
 };
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::{query, QueryBuilder, Transaction};
@@ -26,6 +31,7 @@ use crate::{
 };
 
 use crate::tables::{
+    get_create_account_public_keys_table, get_create_account_updates_table,
     get_create_block_table_query, get_create_commit_signatures_table_query,
     get_create_evidences_table_query, get_create_transactions_table_query,
     get_create_tx_bond_table_query, get_create_tx_bridge_pool_table_query,
@@ -125,6 +131,12 @@ impl Database {
             .await?;
 
         query(get_create_tx_bridge_pool_table_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+        query(get_create_account_updates_table(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+        query(get_create_account_public_keys_table(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
@@ -729,14 +741,48 @@ impl Database {
                         // so we can tell what account have changed and how?
                         _ = UpdateStewardCommission::try_from_slice(&data[..])?;
                     }
+                    "tx_init_account" => {
+                        // check that transaction can be parsed
+                        // before inserting it into database.
+                        // later accounts could be updated using
+                        // tx_update_account, however there is not way
+                        // so far to link those transactions to this.
+                        _ = InitAccount::try_from_slice(&data[..])?;
+                    }
                     "tx_update_account" => {
                         // check that transaction can be parsed
                         // before storing it into database
-                        // TODO: Later we might need to create a table
-                        // for this . This would allow us
-                        // to track down what accounts have been updated
-                        // and how.
-                        _ = UpdateAccount::try_from_slice(&data[..])?;
+                        let tx = UpdateAccount::try_from_slice(&data[..])?;
+
+                        let insert_query = format!(
+                            "INSERT INTO {}.account_updates(account_id, vp_code_hash, threshold) 
+                                VALUES ($1, $2, $3) RETURNING update_id",
+                            network
+                        );
+
+                        let update_id: i32 = sqlx::query_scalar(&insert_query)
+                            .bind(tx.addr.encode())
+                            .bind(tx.vp_code_hash.map(|hash| hash.0))
+                            .bind(tx.threshold.map(|t| t as i32))
+                            .fetch_one(&mut *sqlx_tx)
+                            .await?;
+
+                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                            "INSERT INTO {}.account_public_keys(
+                                update_id,
+                                publick_key,
+                            )",
+                            network
+                        ));
+
+                        // Insert each key which would have an update_id associated to it,
+                        // allowing querying keys per updates.
+                        let query = query_builder
+                            .push_values(tx.public_keys.iter(), |mut b, key| {
+                                b.push_bind(update_id).push_bind(key.to_string());
+                            })
+                            .build();
+                        query.execute(&mut *sqlx_tx).await?;
                     }
                     _ => {}
                 }
@@ -950,6 +996,26 @@ impl Database {
         query(
             format!(
                 "CREATE INDEX x_source_bond ON {}.tx_bond (source);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
+
+        query(
+            format!(
+            "ALTER TABLE {}.account_updates ADD CONSTRAINT pk_update_id PRIMARY KEY (update_id);",
+            self.network
+        )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
+
+        query(
+            format!(
+                "ALTER TABLE {}.account_public_keys ADD CONSTRAINT pk_id PRIMARY KEY (id);",
                 self.network
             )
             .as_str(),
