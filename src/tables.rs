@@ -98,3 +98,16 @@ pub fn get_create_tx_bridge_pool_table_query(network: &str) -> String {
         network
     )
 }
+
+pub fn get_create_commit_signatures_table_query(network: &str) -> String {
+    format!(
+        "CREATE TABLE IF NOT EXISTS {}.commit_signatures (
+        block_id BYTEA NOT NULL,
+        block_id_flag INTEGER NOT NULL,
+        validator_address BYTEA NOT NULL,
+        timestamp TEXT,
+        signature BYTEA NOT NULL
+    );",
+        network
+    )
+}
