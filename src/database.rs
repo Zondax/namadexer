@@ -2,7 +2,13 @@ use crate::{config::DatabaseConfig, error::Error, utils};
 use borsh::de::BorshDeserialize;
 
 use namada::proto;
-use namada::types::{eth_bridge_pool::PendingTransfer, token, transaction, transaction::TxType};
+use namada::types::{
+    address::Address,
+    eth_bridge_pool::PendingTransfer,
+    key::common::PublicKey,
+    token,
+    transaction::{self, account::UpdateAccount, pgf::UpdateStewardCommission, TxType},
+};
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::{query, QueryBuilder, Transaction};
 use std::collections::HashMap;
@@ -62,7 +68,7 @@ impl Database {
 
         Ok(Database {
             pool: Arc::new(pool),
-            network: network_schema.to_string(),
+            network: network_schema,
         })
     }
 
@@ -468,12 +474,12 @@ impl Database {
 
                 let unknown_type = "unknown".to_string();
                 let type_tx = checksums_map.get(&code_hex).unwrap_or(&unknown_type);
+                let data = tx.data().ok_or(Error::InvalidTxData)?;
 
                 // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
                 match type_tx.as_str() {
                     "tx_transfer" => {
                         info!("Saving tx_transfer");
-                        let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let transfer = token::Transfer::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
@@ -504,7 +510,6 @@ impl Database {
                     }
                     "tx_bond" => {
                         info!("Saving tx_bond");
-                        let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let bond = transaction::pos::Bond::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
@@ -531,7 +536,6 @@ impl Database {
                     }
                     "tx_unbond" => {
                         info!("Saving tx_unbond");
-                        let data = tx.data().ok_or(Error::InvalidTxData)?;
                         let unbond = transaction::pos::Unbond::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
@@ -564,7 +568,6 @@ impl Database {
                     // this is an ethereum transaction
                     "tx_bridge_pool" => {
                         info!("Saving tx_bridge_pool");
-                        let data = tx.data().ok_or(Error::InvalidTxData)?;
                         // Only TransferToEthereum type is supported at the moment by namada and us.
                         let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
 
@@ -594,6 +597,34 @@ impl Database {
                             })
                             .build();
                         query.execute(&mut *sqlx_tx).await?;
+                    }
+                    "tx_reveal_pk" => {
+                        // nothing to do here, only check that data is a valid publicKey
+                        // otherwise this transaction must not make it into
+                        // the database.
+                        info!("Saving tx_reveal_pk");
+                        _ = PublicKey::try_from_slice(&data[..])?;
+                    }
+                    "tx_resign_steward" => {
+                        // Not much to do, just, check that the address this transactions
+                        // holds in the data field is correct, or at least parsed succesfully.
+                        _ = Address::try_from_slice(&data[..])?;
+                    }
+                    "tx_update_steward_commission" => {
+                        // Not much to do, just, check that the address this transactions
+                        // holds in the data field is correct, or at least parsed succesfully.
+                        // TODO: We might need to create a new table for this?
+                        // so we can tell what account have changed and how?
+                        _ = UpdateStewardCommission::try_from_slice(&data[..])?;
+                    }
+                    "tx_update_account" => {
+                        // check that transaction can be parsed
+                        // before storing it into database
+                        // TODO: Later we might need to create a table
+                        // for this . This would allow us
+                        // to track down what accounts have been updated
+                        // and how.
+                        _ = UpdateAccount::try_from_slice(&data[..])?;
                     }
                     _ => {}
                 }

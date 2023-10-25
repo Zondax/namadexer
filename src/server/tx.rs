@@ -1,6 +1,17 @@
 use crate::error::Error;
 use borsh::BorshDeserialize;
-use namada::types::{token, transaction};
+use namada::types::address::Address;
+use namada::types::key::common::PublicKey;
+use namada::types::{
+    token,
+    transaction::{
+        account::{InitAccount, UpdateAccount},
+        governance::VoteProposalData,
+        pgf::UpdateStewardCommission,
+        pos::{Bond, InitValidator, Unbond, Withdraw},
+    },
+};
+
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -11,7 +22,6 @@ use namada::types::eth_bridge_pool::PendingTransfer;
 
 use namada::ibc::applications::transfer::msgs::transfer::MsgTransfer;
 
-use namada::types::key::common;
 use sqlx::postgres::PgRow as Row;
 use sqlx::Row as TRow;
 
@@ -27,13 +37,16 @@ const MSG_TRANSFER_TYPE_URL: &str = "/ibc.applications.transfer.v1.MsgTransfer";
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum TxDecoded {
     Transfer(token::Transfer),
-    Bond(transaction::pos::Bond),
-    RevealPK(common::PublicKey),
-    VoteProposal(transaction::governance::VoteProposalData),
-    InitValidator(Box<transaction::pos::InitValidator>),
-    Unbond(transaction::pos::Unbond),
-    Withdraw(transaction::pos::Withdraw),
-    InitAccount(transaction::account::InitAccount),
+    Bond(Bond),
+    RevealPK(PublicKey),
+    VoteProposal(VoteProposalData),
+    InitValidator(Box<InitValidator>),
+    Unbond(Unbond),
+    Withdraw(Withdraw),
+    InitAccount(InitAccount),
+    UpdateAccount(UpdateAccount),
+    ResignSteward(Address),
+    UpdateStewardCommission(UpdateStewardCommission),
     EthPoolBridge(PendingTransfer),
     Ibc(IbcTx),
 }
@@ -97,40 +110,46 @@ impl TxInfo {
             let unknown_type = "unknown".to_string();
             let type_tx = checksums.get(&self.code()).unwrap_or(&unknown_type);
 
-            let decoded =
-                match type_tx.as_str() {
-                    "tx_transfer" => {
-                        token::Transfer::try_from_slice(&self.data()).map(TxDecoded::Transfer)?
-                    }
-                    "tx_bond" => {
-                        transaction::pos::Bond::try_from_slice(&self.data()).map(TxDecoded::Bond)?
-                    }
-                    "tx_reveal_pk" => {
-                        common::PublicKey::try_from_slice(&self.data()).map(TxDecoded::RevealPK)?
-                    }
-                    "tx_vote_proposal" => {
-                        transaction::governance::VoteProposalData::try_from_slice(&self.data())
-                            .map(TxDecoded::VoteProposal)?
-                    }
-                    "tx_init_validator" => {
-                        transaction::pos::InitValidator::try_from_slice(&self.data())
-                            .map(|t| TxDecoded::InitValidator(Box::new(t)))?
-                    }
-                    "tx_unbond" => transaction::pos::Unbond::try_from_slice(&self.data())
-                        .map(TxDecoded::Unbond)?,
-                    "tx_withdraw" => transaction::pos::Withdraw::try_from_slice(&self.data())
-                        .map(TxDecoded::Withdraw)?,
-                    "tx_init_account" => {
-                        transaction::account::InitAccount::try_from_slice(&self.data())
-                            .map(TxDecoded::InitAccount)?
-                    }
-                    "tx_ibc" => Self::decode_ibc(&self.data()).map(TxDecoded::Ibc)?,
-                    "tx_bridge_pool" => PendingTransfer::try_from_slice(&self.data())
-                        .map(TxDecoded::EthPoolBridge)?,
-                    _ => {
-                        return Err(Error::InvalidTxData);
-                    }
-                };
+            let decoded = match type_tx.as_str() {
+                "tx_transfer" => {
+                    token::Transfer::try_from_slice(&self.data()).map(TxDecoded::Transfer)?
+                }
+                "tx_bond" => Bond::try_from_slice(&self.data()).map(TxDecoded::Bond)?,
+                "tx_reveal_pk" => {
+                    PublicKey::try_from_slice(&self.data()).map(TxDecoded::RevealPK)?
+                }
+                "tx_vote_proposal" => {
+                    VoteProposalData::try_from_slice(&self.data()).map(TxDecoded::VoteProposal)?
+                }
+                "tx_init_validator" => InitValidator::try_from_slice(&self.data())
+                    .map(|t| TxDecoded::InitValidator(Box::new(t)))?,
+                "tx_unbond" => Unbond::try_from_slice(&self.data()).map(TxDecoded::Unbond)?,
+                "tx_withdraw" => Withdraw::try_from_slice(&self.data()).map(TxDecoded::Withdraw)?,
+                "tx_init_account" => {
+                    InitAccount::try_from_slice(&self.data()).map(TxDecoded::InitAccount)?
+                }
+                "tx_update_account" => {
+                    // we could need to give users more context here on how the related accound
+                    // has been updated.
+                    UpdateAccount::try_from_slice(&self.data()).map(TxDecoded::UpdateAccount)?
+                }
+                "tx_resign_steward" => {
+                    Address::try_from_slice(&self.data()).map(TxDecoded::ResignSteward)?
+                }
+                "tx_update_steward_commission" => {
+                    // we could need to give users more context about this update.
+                    UpdateStewardCommission::try_from_slice(&self.data())
+                        .map(TxDecoded::UpdateStewardCommission)?
+                }
+                "tx_ibc" => Self::decode_ibc(&self.data()).map(TxDecoded::Ibc)?,
+                "tx_bridge_pool" => {
+                    PendingTransfer::try_from_slice(&self.data()).map(TxDecoded::EthPoolBridge)?
+                }
+
+                _ => {
+                    return Err(Error::InvalidTxData);
+                }
+            };
 
             self.set_tx(decoded);
 
