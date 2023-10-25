@@ -237,13 +237,10 @@ impl Database {
         let commit_signatures = block.last_commit.as_ref().map(|c| &c.signatures);
 
         // Check if we have commit signatures
-        match commit_signatures {
-            Some(cs) => {
-                let signatures: Vec<CommitSig> =
-                    cs.iter().map(|s| CommitSig::from(s.to_owned())).collect();
-                Self::save_commit_sinatures(&block_id, &signatures, sqlx_tx, network).await?;
-            }
-            None => {}
+        if let Some(cs) = commit_signatures {
+            let signatures: Vec<CommitSig> =
+                cs.iter().map(|s| CommitSig::from(s.to_owned())).collect();
+            Self::save_commit_sinatures(&block_id, &signatures, sqlx_tx, network).await?;
         };
 
         let evidence_list = RawEvidenceList::from(block.evidence().clone());
