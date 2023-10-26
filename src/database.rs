@@ -1139,28 +1139,38 @@ impl Database {
             .map_err(Error::from)
     }
 
-    pub async fn account_details(&self, account_id: &str) -> Result<Option<Row>, Error> {
-        // get an array of values containing all the threshold and vp_code_hash values,
-        // that belongs to account_id. those values are sorted in the array in ascending order
-        // using the update_id index, this allows us to categorized them, because there is not such thing
-        // as timestamp in the original transaction.
+    /// Returns a list of thresholds sorted in ascending order using
+    /// update_id which act as a kind of timestamp between updates.
+    /// In case accound_id does not exists, this method returns Ok(None)
+    pub async fn account_thresholds(&self, account_id: &str) -> Result<Option<Row>, Error> {
         let to_query = r#"
-            SELECT 
-                ARRAY_AGG(threshold ORDER BY update_id ASC) AS thresholds,
-                ARRAY_AGG(vp_code_hash ORDER BY update_id ASC) AS vp_codes
+            SELECT ARRAY_AGG(threshold ORDER BY update_id ASC) AS thresholds
             FROM account_updates
             WHERE account_id = $1
             GROUP BY account_id;
         "#;
 
-        // this will return a row with two columns, called thresholds and vp_codes
-        // chronologically ordered.
-        // db could return raw data, which would require us to perform the grouping
-        // and sorting according to update_id, however, ARRAY_AGG is a built-in
-        // functionality that has passed throught a lot of optimizations.
         query(to_query)
             .bind(account_id)
             .fetch_optional(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
+    /// Returns a list of vp_code_hashes sorted in ascending order using
+    /// update_id which act as a kind of timestamp between updates.
+    /// In case accound_id does not exists, this method returns Ok(None)
+    pub async fn account_vp_codes(&self, account_id: &str) -> Result<Vec<Row>, Error> {
+        let to_query = r#"
+            SELECT vp_code_hash
+            FROM account_updates
+            WHERE account_id = $1
+            ORDER BY update_id ASC;
+        "#;
+
+        query(to_query)
+            .bind(account_id)
+            .fetch_all(&*self.pool)
             .await
             .map_err(Error::from)
     }
@@ -1179,7 +1189,7 @@ impl Database {
             ORDER BY update_id ASC;
         "#;
 
-        // Each returned raw would contain a vector of public keys formatted as strings.
+        // Each returned row would contain a vector of public keys formatted as strings.
         // The column's name is publick_key_batch.
         query(to_query)
             .bind(account_id)
