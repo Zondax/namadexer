@@ -444,23 +444,27 @@ impl Database {
                     hash, 
                     block_id, 
                     tx_type,
+                    fee_amount_per_gas_unit,
+                    fee_token,
+                    gas_limit_multiplier,
                     code,
                     data
                 )",
             network
         ));
 
-        // this will holds tuples (hash, block_id, tx_type, code, data)
+        // this will holds tuples (hash, block_id, tx_type, fee_amount_per_gas_unit, fee_token, gas_limit_multiplier, code, data)
         // in order to push txs.len at once in a single query.
         // the limit for bind values in postgres is 65535 values, that means that
         // to hit that limit a block would need to have:
-        // n_tx = 65535/5 = 13107
-        // being 5 the number of columns.
+        // n_tx = 65535/8 = 8191
+        // being 8 the number of columns.
         let mut tx_values = Vec::with_capacity(txs.len());
 
         for t in txs.iter() {
             let tx = proto::Tx::try_from(t.as_slice()).map_err(|_| Error::InvalidTxData)?;
             let mut code = Default::default();
+
 
             // Decrypted transaction give access to the raw data
             if let TxType::Decrypted(..) = tx.header().tx_type {
@@ -630,10 +634,25 @@ impl Database {
                 }
             }
 
+            let mut fee_amount_per_gas_unit = String::new();
+            let mut fee_token = String::new();
+            let mut gas_limit_multiplier = 0;
+            if let TxType::Wrapper(txw) = tx.header().tx_type {
+                dbg!(&txw);
+                fee_amount_per_gas_unit = txw.fee.amount_per_gas_unit.raw_amount().to_string();
+                fee_token = txw.fee.token.to_string();
+                // WARNING! converting into i64 might ended up changing the value but there is little
+                // chance that he goes higher than i64 max value
+                gas_limit_multiplier = txw.gas_limit.into();
+            }
+
             tx_values.push((
                 tx.header_hash().0.as_slice().to_vec(),
                 block_id.to_vec(),
                 utils::tx_type_name(&tx.header.tx_type),
+                fee_amount_per_gas_unit,
+                fee_token,
+                gas_limit_multiplier,
                 code,
                 tx.data().map(|v| v.to_vec()),
             ));
@@ -648,10 +667,13 @@ impl Database {
         let res = query_builder
             .push_values(
                 tx_values.into_iter(),
-                |mut b, (hash, block_id, tx_type, code, data)| {
+                |mut b, (hash, block_id, tx_type, fee_amount_per_gas_unit, fee_token, fee_gas_limit_multiplier, code, data)| {
                     b.push_bind(hash)
                         .push_bind(block_id)
                         .push_bind(tx_type)
+                        .push_bind(fee_amount_per_gas_unit)
+                        .push_bind(fee_token)
+                        .push_bind(fee_gas_limit_multiplier as i64)
                         .push_bind(code)
                         .push_bind(data);
                 },
