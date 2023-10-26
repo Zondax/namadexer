@@ -1,4 +1,7 @@
 use crate::{config::DatabaseConfig, error::Error, utils};
+use futures::StreamExt;
+use sqlx::Row as TRow;
+
 use borsh::de::BorshDeserialize;
 
 use namada::proto;
@@ -1136,6 +1139,55 @@ impl Database {
             .fetch_all(&*self.pool)
             .await
             .map_err(Error::from)
+    }
+
+    pub async fn account_details(
+        &self,
+        account_id: &str,
+    ) -> Result<(Vec<i32>, Vec<Vec<u8>>), Error> {
+        // get an array of values containing all the threshold and vp_code_hash values,
+        // that belongs to account_id. those values are sorted in the array in ascending order
+        // using the update_id index, this allows us to categorized them, because there is not such thing
+        // as timestamp in the original transaction.
+        let query = r#"
+            SELECT 
+                ARRAY_AGG(threshold ORDER BY update_id ASC) AS thresholds,
+                ARRAY_AGG(vp_code_hash ORDER BY update_id ASC) AS vp_codes
+            FROM account_updates
+            WHERE account_id = $1
+            GROUP BY account_id;
+        "#;
+
+        Ok(sqlx::query_as(query)
+            .bind(account_id)
+            .fetch_one(&*self.pool)
+            .await?)
+    }
+
+    pub async fn account_public_keys(&self, account_id: &str) -> Result<Vec<Vec<String>>, Error> {
+        // same as above, we use update_id as a sort of timestamp, ordering each sets of
+        // public_keys, being the last element in the list the current set assigned for the
+        // account_id at the time this query is executed.
+        let query = r#"
+            SELECT ARRAY_AGG(public_key ORDER BY id ASC) as public_keys_batch
+            FROM account_public_keys 
+            WHERE update_id IN (
+                SELECT update_id FROM account_updates WHERE account_id = $1
+            )
+            GROUP BY update_id
+            ORDER BY update_id ASC;
+        "#;
+
+        let mut results = Vec::new();
+        let mut rows = sqlx::query(query).bind(account_id).fetch(&*self.pool);
+
+        while let Some(res) = rows.next().await {
+            let row = res?;
+            let public_keys: Vec<String> = row.get(0);
+            results.push(public_keys);
+        }
+
+        Ok(results)
     }
 
     pub fn pool(&self) -> &PgPool {
