@@ -465,7 +465,6 @@ impl Database {
             let tx = proto::Tx::try_from(t.as_slice()).map_err(|_| Error::InvalidTxData)?;
             let mut code = Default::default();
 
-
             // Decrypted transaction give access to the raw data
             if let TxType::Decrypted(..) = tx.header().tx_type {
                 code = tx
@@ -666,7 +665,17 @@ impl Database {
         let res = query_builder
             .push_values(
                 tx_values.into_iter(),
-                |mut b, (hash, block_id, tx_type, fee_amount_per_gas_unit, fee_token, fee_gas_limit_multiplier, code, data)| {
+                |mut b,
+                 (
+                    hash,
+                    block_id,
+                    tx_type,
+                    fee_amount_per_gas_unit,
+                    fee_token,
+                    fee_gas_limit_multiplier,
+                    code,
+                    data,
+                )| {
                     b.push_bind(hash)
                         .push_bind(block_id)
                         .push_bind(tx_type)

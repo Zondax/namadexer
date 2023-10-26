@@ -80,7 +80,7 @@ pub struct TxInfo {
     fee_token: String,
     /// Gas limit (only for Wrapper tx)
     gas_limit_multiplier: i64,
-    /// The transaction code. Match what is in the checksum.js 
+    /// The transaction code. Match what is in the checksum.js
     #[serde(serialize_with = "serialize_optional_hex")]
     code: Option<Vec<u8>>,
     #[serde(serialize_with = "serialize_optional_hex")]
