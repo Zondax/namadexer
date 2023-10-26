@@ -1,15 +1,10 @@
-use axum::{
-    extract::{Path, State},
-    routing::get,
-    Json, Router,
-};
+use axum::{routing::get, Router};
 
 #[cfg(feature = "prometheus")]
 use axum_prometheus::{PrometheusMetricLayerBuilder, AXUM_HTTP_REQUESTS_DURATION_SECONDS};
 use futures_util::{Future, TryFutureExt};
 #[cfg(feature = "prometheus")]
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
-use sqlx::Row;
 use std::{collections::HashMap, net::SocketAddr};
 use tracing::{info, instrument};
 
@@ -22,117 +17,24 @@ pub mod blocks;
 pub mod tx;
 pub use blocks::BlockInfo;
 pub use tx::TxInfo;
+mod endpoints;
 pub mod shielded;
 mod utils;
 pub(crate) use utils::{from_hex, serialize_hex};
+
+use self::endpoints::{
+    block::{get_block_by_hash, get_block_by_height, get_last_block},
+    transaction::{get_shielded_tx, get_tx_by_hash},
+};
 
 pub const HTTP_DURATION_SECONDS_BUCKETS: &[f64; 11] = &[
     0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
 ];
 
 #[derive(Clone)]
-struct ServerState {
+pub struct ServerState {
     db: Database,
     checksums_map: HashMap<String, String>,
-}
-
-async fn get_tx_hashes(
-    state: &ServerState,
-    block: &mut BlockInfo,
-    hash: &[u8],
-) -> Result<(), Error> {
-    let rows = state.db.get_tx_hashes_block(hash).await?;
-
-    let mut tx_hashes: Vec<blocks::HashID> = vec![];
-    for row in rows.iter() {
-        let hash = blocks::HashID(row.try_get("hash")?);
-        tx_hashes.push(hash);
-    }
-
-    block.tx_hashes = tx_hashes;
-
-    Ok(())
-}
-
-async fn get_block_by_height(
-    State(state): State<ServerState>,
-    Path(height): Path<u32>,
-) -> Result<Json<Option<BlockInfo>>, Error> {
-    info!("calling /block/height/:block_height");
-
-    let row = state.db.block_by_height(height).await?;
-    let Some(row) = row else {
-        return Ok(Json(None));
-    };
-
-    let mut block = BlockInfo::try_from(&row)?;
-
-    let block_id: Vec<u8> = row.try_get("block_id")?;
-    get_tx_hashes(&state, &mut block, &block_id).await?;
-
-    Ok(Json(Some(block)))
-}
-
-async fn get_block_by_hash(
-    State(state): State<ServerState>,
-    Path(hash): Path<String>,
-) -> Result<Json<Option<BlockInfo>>, Error> {
-    info!("calling /block/hash/:block_hash");
-
-    let id = hex::decode(hash)?;
-
-    let row = state.db.block_by_id(&id).await?;
-    let Some(row) = row else {
-        return Ok(Json(None));
-    };
-    let mut block = BlockInfo::try_from(&row)?;
-
-    let block_id: Vec<u8> = row.try_get("block_id")?;
-    get_tx_hashes(&state, &mut block, &block_id).await?;
-
-    Ok(Json(Some(block)))
-}
-
-async fn get_last_block(State(state): State<ServerState>) -> Result<Json<BlockInfo>, Error> {
-    let row = state.db.get_last_block().await?;
-
-    let mut block = BlockInfo::try_from(&row)?;
-
-    let block_id: Vec<u8> = row.try_get("block_id")?;
-    get_tx_hashes(&state, &mut block, &block_id).await?;
-
-    Ok(Json(block))
-}
-
-async fn get_tx_by_hash(
-    State(state): State<ServerState>,
-    Path(hash): Path<String>,
-) -> Result<Json<Option<TxInfo>>, Error> {
-    info!("calling /tx/:tx_hash");
-
-    let hash = hex::decode(hash)?;
-
-    let row = state.db.get_tx(&hash).await?;
-    let Some(row) = row else {
-        return Ok(Json(None));
-    };
-    let mut tx = TxInfo::try_from(row)?;
-
-    // ignore the error for now
-    _ = tx.decode_tx(&state.checksums_map);
-
-    Ok(Json(Some(tx)))
-}
-
-// Return a list of the shielded assets and their total compiled using all the shielded transactions (in, internal and out)
-async fn get_shielded_tx(
-    State(state): State<ServerState>,
-) -> Result<Json<shielded::ShieldedAssetsResponse>, Error> {
-    let rows = state.db.get_shielded_tx().await?;
-
-    let shielded_assests_response = shielded::ShieldedAssetsResponse::try_from(&rows)?;
-
-    Ok(Json(shielded_assests_response))
 }
 
 fn server_routes(state: ServerState) -> Router<()> {
