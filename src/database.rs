@@ -638,7 +638,6 @@ impl Database {
             let mut fee_token = String::new();
             let mut gas_limit_multiplier = 0;
             if let TxType::Wrapper(txw) = tx.header().tx_type {
-                dbg!(&txw);
                 fee_amount_per_gas_unit = txw.fee.amount_per_gas_unit.raw_amount().to_string();
                 fee_token = txw.fee.token.to_string();
                 // WARNING! converting into i64 might ended up changing the value but there is little
