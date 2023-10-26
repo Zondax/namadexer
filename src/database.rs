@@ -1,6 +1,4 @@
 use crate::{config::DatabaseConfig, error::Error, utils};
-use futures::StreamExt;
-use sqlx::Row as TRow;
 
 use borsh::de::BorshDeserialize;
 
@@ -1141,15 +1139,12 @@ impl Database {
             .map_err(Error::from)
     }
 
-    pub async fn account_details(
-        &self,
-        account_id: &str,
-    ) -> Result<(Vec<i32>, Vec<Vec<u8>>), Error> {
+    pub async fn account_details(&self, account_id: &str) -> Result<Option<Row>, Error> {
         // get an array of values containing all the threshold and vp_code_hash values,
         // that belongs to account_id. those values are sorted in the array in ascending order
         // using the update_id index, this allows us to categorized them, because there is not such thing
         // as timestamp in the original transaction.
-        let query = r#"
+        let to_query = r#"
             SELECT 
                 ARRAY_AGG(threshold ORDER BY update_id ASC) AS thresholds,
                 ARRAY_AGG(vp_code_hash ORDER BY update_id ASC) AS vp_codes
@@ -1158,17 +1153,23 @@ impl Database {
             GROUP BY account_id;
         "#;
 
-        Ok(sqlx::query_as(query)
+        // this will return a row with two columns, called thresholds and vp_codes
+        // chronologically ordered.
+        // db could return raw data, which would require us to perform the grouping
+        // and sorting according to update_id, however, ARRAY_AGG is a built-in
+        // functionality that has passed throught a lot of optimizations.
+        query(to_query)
             .bind(account_id)
-            .fetch_one(&*self.pool)
-            .await?)
+            .fetch_optional(&*self.pool)
+            .await
+            .map_err(Error::from)
     }
 
-    pub async fn account_public_keys(&self, account_id: &str) -> Result<Vec<Vec<String>>, Error> {
+    pub async fn account_public_keys(&self, account_id: &str) -> Result<Vec<Row>, Error> {
         // same as above, we use update_id as a sort of timestamp, ordering each sets of
         // public_keys, being the last element in the list the current set assigned for the
         // account_id at the time this query is executed.
-        let query = r#"
+        let to_query = r#"
             SELECT ARRAY_AGG(public_key ORDER BY id ASC) as public_keys_batch
             FROM account_public_keys 
             WHERE update_id IN (
@@ -1178,16 +1179,13 @@ impl Database {
             ORDER BY update_id ASC;
         "#;
 
-        let mut results = Vec::new();
-        let mut rows = sqlx::query(query).bind(account_id).fetch(&*self.pool);
-
-        while let Some(res) = rows.next().await {
-            let row = res?;
-            let public_keys: Vec<String> = row.get(0);
-            results.push(public_keys);
-        }
-
-        Ok(results)
+        // Each returned raw would contain a vector of public keys formatted as strings.
+        // The column's name is publick_key_batch.
+        query(to_query)
+            .bind(account_id)
+            .fetch_all(&*self.pool)
+            .await
+            .map_err(Error::from)
     }
 
     pub fn pool(&self) -> &PgPool {
