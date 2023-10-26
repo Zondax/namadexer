@@ -35,6 +35,9 @@ pub fn get_create_transactions_table_query(network: &str) -> String {
         hash BYTEA NOT NULL,
         block_id BYTEA NOT NULL,
         tx_type TEXT NOT NULL,
+        fee_amount_per_gas_unit TEXT,
+        fee_token TEXT,
+        gas_limit_multiplier BIGINT,
         code BYTEA,
         data BYTEA
     );",

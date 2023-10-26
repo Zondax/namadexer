@@ -28,7 +28,7 @@ use sqlx::Row as TRow;
 // represents the number of columns
 // that db must contains in order to deserialized
 // transactions
-const NUM_TX_COLUMNS: usize = 5;
+const NUM_TX_COLUMNS: usize = 8;
 
 // namada::ibc::applications::transfer::msgs::transfer::TYPE_URL has been made private and can't be access anymore
 const MSG_TRANSFER_TYPE_URL: &str = "/ibc.applications.transfer.v1.MsgTransfer";
@@ -75,6 +75,12 @@ pub struct TxInfo {
     block_id: Vec<u8>,
     /// The transaction type encoded as a string
     tx_type: String,
+    /// The transaction fee only for tx_type Wrapper (otherwise empty)
+    fee_amount_per_gas_unit: String,
+    fee_token: String,
+    /// Gas limit (only for Wrapper tx)
+    gas_limit_multiplier: i64,
+    /// The transaction code. Match what is in the checksum.js
     #[serde(serialize_with = "serialize_optional_hex")]
     code: Option<Vec<u8>>,
     #[serde(serialize_with = "serialize_optional_hex")]
@@ -181,6 +187,9 @@ impl TryFrom<Row> for TxInfo {
         let hash: Vec<u8> = row.try_get("hash")?;
         let block_id: Vec<u8> = row.try_get("block_id")?;
         let tx_type: String = row.try_get("tx_type")?;
+        let fee_amount_per_gas_unit = row.try_get("fee_amount_per_gas_unit")?;
+        let fee_token = row.try_get("fee_token")?;
+        let gas_limit_multiplier = row.try_get("gas_limit_multiplier")?;
         let code: Option<Vec<u8>> = row.try_get("code")?;
         let data: Option<Vec<u8>> = row.try_get("data")?;
 
@@ -188,6 +197,9 @@ impl TryFrom<Row> for TxInfo {
             hash,
             block_id,
             tx_type,
+            fee_amount_per_gas_unit,
+            fee_token,
+            gas_limit_multiplier,
             code,
             data,
             tx: None,
