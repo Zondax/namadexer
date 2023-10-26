@@ -16,18 +16,20 @@ use std::sync::Arc;
 use std::time::Duration;
 use tendermint::block::Block;
 use tendermint_proto::types::evidence::Sum;
+use tendermint_proto::types::CommitSig;
 use tendermint_proto::types::EvidenceList as RawEvidenceList;
 use tracing::{info, instrument};
 
 use crate::{
-    DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_EVDS_DURATION, DB_SAVE_TXS_DURATION,
-    MASP_ADDR,
+    DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_DURATION,
+    DB_SAVE_EVDS_DURATION, DB_SAVE_TXS_DURATION, MASP_ADDR,
 };
 
 use crate::tables::{
-    get_create_block_table_query, get_create_evidences_table_query,
-    get_create_transactions_table_query, get_create_tx_bond_table_query,
-    get_create_tx_bridge_pool_table_query, get_create_tx_transfer_table_query,
+    get_create_block_table_query, get_create_commit_signatures_table_query,
+    get_create_evidences_table_query, get_create_transactions_table_query,
+    get_create_tx_bond_table_query, get_create_tx_bridge_pool_table_query,
+    get_create_tx_transfer_table_query,
 };
 
 use metrics::{histogram, increment_counter};
@@ -99,6 +101,10 @@ impl Database {
             .await?;
 
         query(get_create_block_table_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(get_create_commit_signatures_table_query(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
@@ -234,6 +240,15 @@ impl Database {
 
         query_block.execute(&mut *sqlx_tx).await?;
 
+        let commit_signatures = block.last_commit.as_ref().map(|c| &c.signatures);
+
+        // Check if we have commit signatures
+        if let Some(cs) = commit_signatures {
+            let signatures: Vec<CommitSig> =
+                cs.iter().map(|s| CommitSig::from(s.to_owned())).collect();
+            Self::save_commit_sinatures(&block_id, &signatures, sqlx_tx, network).await?;
+        };
+
         let evidence_list = RawEvidenceList::from(block.evidence().clone());
         Self::save_evidences(evidence_list, &block_id, sqlx_tx, network).await?;
         Self::save_transactions(
@@ -287,6 +302,100 @@ impl Database {
             // update our counter for processed blocks since service started.
             increment_counter!(DB_SAVE_BLOCK_COUNTER, &labels);
         }
+
+        res
+    }
+
+    /// Save a block and commit database
+    #[instrument(skip(block_id, signatures))]
+    pub async fn save_commit_sinatures<'a>(
+        block_id: &[u8],
+        signatures: &Vec<CommitSig>,
+        sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
+        network: &str,
+    ) -> Result<(), Error> {
+        info!("saving commit signatures");
+
+        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+            "INSERT INTO {}.commit_signatures(
+                block_id,
+                block_id_flag,
+                validator_address,
+                timestamp,
+                signature
+            )",
+            network
+        ));
+
+        let instant = tokio::time::Instant::now();
+
+        // Preparing data before inserting it
+        // in the commit_signatures table.
+        let mut signature_data = Vec::new();
+
+        for signature in signatures {
+            signature_data.push((
+                block_id,
+                signature.block_id_flag,
+                signature.validator_address.clone(),
+                signature.timestamp.as_ref().map(|t| t.seconds.to_string()),
+                signature.signature.clone(),
+            ));
+        }
+
+        let num_signatures = signature_data.len();
+
+        if num_signatures == 0 {
+            let labels = [
+                ("bulk_insert", "signatures".to_string()),
+                ("status", "Ok".to_string()),
+                ("num_signatures", num_signatures.to_string()),
+            ];
+            let dur = instant.elapsed();
+            histogram!(
+                DB_SAVE_COMMIT_SIG_DURATION,
+                dur.as_secs_f64() * 1000.0,
+                &labels
+            );
+
+            return Ok(());
+        }
+
+        let res = query_builder
+            .push_values(
+                signature_data.into_iter(),
+                |mut b, (block_id, block_id_flag, validator_address, timestamp, signature)| {
+                    b.push_bind(block_id)
+                        .push_bind(block_id_flag)
+                        .push_bind(validator_address)
+                        .push_bind(timestamp)
+                        .push_bind(signature);
+                },
+            )
+            .build()
+            .execute(&mut *sqlx_tx)
+            .await
+            .map(|_| ())
+            .map_err(Error::from);
+
+        let dur = instant.elapsed();
+
+        let mut status = "Ok".to_string();
+        if let Err(e) = &res {
+            status = e.to_string();
+        }
+
+        let labels = [
+            ("bulk_insert", "signatures".to_string()),
+            ("status", status),
+            ("num_signatures", num_signatures.to_string()),
+        ];
+
+        histogram!(
+            DB_SAVE_COMMIT_SIG_DURATION,
+            dur.as_secs_f64() * 1000.0,
+            &labels
+        );
 
         res
     }
