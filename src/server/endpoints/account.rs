@@ -45,12 +45,12 @@ pub async fn get_account_updates(
     let thresholds_result = state.db.account_thresholds(&account_id).await?;
 
     let Some(thresholds_row) = thresholds_result else {
-            return Ok(Json(None))
-        };
+        return Ok(Json(None));
+    };
 
-    let Some(code_row)  = state.db.account_vp_codes(&account_id).await? else {
-            return Ok(Json(None))
-        };
+    let Some(code_row) = state.db.account_vp_codes(&account_id).await? else {
+        return Ok(Json(None));
+    };
 
     let public_keys_result = state.db.account_public_keys(&account_id).await?;
 
