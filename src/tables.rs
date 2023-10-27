@@ -121,7 +121,7 @@ pub fn get_create_commit_signatures_table_query(network: &str) -> String {
 pub fn get_create_account_updates_table(network: &str) -> String {
     format!(
         "CREATE TABLE IF NOT EXISTS {}.account_updates (
-        update_id SERIAL,
+        update_id SERIAL PRIMARY KEY,
         account_id TEXT NOT NULL,
         vp_code_hash BYTEA,
         threshold INTEGER
@@ -136,7 +136,7 @@ pub fn get_create_account_public_keys_table(network: &str) -> String {
     format!(
         "CREATE TABLE IF NOT EXISTS {}.account_public_keys (
         id SERIAL,
-        update_id INTEGER REFERENCES {}.account_updates(update_id),
+        update_id INTEGER UNIQUE REFERENCES {}.account_updates(update_id),
         public_key TEXT NOT NULL
     );",
         network, network

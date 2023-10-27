@@ -62,6 +62,7 @@ impl Database {
             "postgres://{}:{}@{}/{}",
             db_config.user, db_config.password, db_config.host, db_config.dbname
         );
+        println!("config: {}", config);
 
         // If timeout setting is not present in the provided configuration,
         // lets use our default timeout.
@@ -101,9 +102,9 @@ impl Database {
     /// - `evidences` Where block's evidence data is stored.
     #[instrument(skip(self))]
     pub async fn create_tables(&self) -> Result<(), Error> {
-        info!("Creating tables if doesn't exist");
+        info!("Creating tables if they don't exist");
 
-        query(format!("CREATE SCHEMA IF NOT EXISTS {}", self.network).as_str())
+        query(&format!("CREATE SCHEMA IF NOT EXISTS {}", self.network))
             .execute(&*self.pool)
             .await?;
 
@@ -134,9 +135,11 @@ impl Database {
         query(get_create_tx_bridge_pool_table_query(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
+
         query(get_create_account_updates_table(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
+
         query(get_create_account_public_keys_table(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
@@ -999,16 +1002,6 @@ impl Database {
                 "CREATE INDEX x_source_bond ON {}.tx_bond (source);",
                 self.network
             )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        query(
-            format!(
-            "ALTER TABLE {}.account_updates ADD CONSTRAINT pk_update_id PRIMARY KEY (update_id);",
-            self.network
-        )
             .as_str(),
         )
         .execute(&*self.pool)
