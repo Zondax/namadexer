@@ -771,7 +771,7 @@ impl Database {
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
                             "INSERT INTO {}.account_public_keys(
                                 update_id,
-                                publick_key,
+                                public_key,
                             )",
                             network
                         ));
@@ -1139,9 +1139,28 @@ impl Database {
             .map_err(Error::from)
     }
 
-    /// Returns a list of thresholds sorted in ascending order using
-    /// update_id which act as a kind of timestamp between updates.
-    /// In case accound_id does not exists, this method returns Ok(None)
+    /// Retrieves a historical list of thresholds associated with a given account.
+    ///
+    /// This function executes a SQL query to aggregate thresholds (`ARRAY_AGG`) for the specified
+    /// `account_id`. The thresholds are ordered by `update_id`, which serves as a chronological marker,
+    /// indicating the sequence of updates. The most recent threshold is at the end of the list.
+    ///
+    /// # Parameters
+    ///
+    /// - `account_id`: A string slice (`&str`) representing the unique identifier of the account.
+    ///
+    /// # Returns
+    ///
+    /// - On success, returns an `Option<Row>`. The `Row` contains an aggregated list
+    ///   of thresholds (aliased as `thresholds`) for the account. If the account does not exist,
+    ///   returns `Ok(None)`.
+    /// - On failure, returns an `Error`.
+    ///
+    /// # Usage
+    ///
+    /// This function is useful for tracking the evolution of thresholds associated with an account over time.
+    /// It provides a comprehensive history, allowing users or systems to understand how the thresholds
+    /// associated with the account have changed and to identify the current threshold in use.
     pub async fn account_thresholds(&self, account_id: &str) -> Result<Option<Row>, Error> {
         let to_query = r#"
             SELECT ARRAY_AGG(threshold ORDER BY update_id ASC) AS thresholds
@@ -1157,9 +1176,28 @@ impl Database {
             .map_err(Error::from)
     }
 
-    /// Returns a list of vp_code_hashes sorted in ascending order using
-    /// update_id which act as a kind of timestamp between updates.
-    /// In case accound_id does not exists, this method returns Ok(None)
+    /// Retrieves a historical list of vp_code_hashes associated with a given account.
+    ///
+    /// This function executes a SQL query to aggregate vp_code_hashes (`ARRAY_AGG`) for the specified
+    /// `account_id`. The hashes are ordered by `update_id`, which serves as a chronological marker,
+    /// indicating the sequence of updates. The most recent hash is at the end of the list.
+    ///
+    /// # Parameters
+    ///
+    /// - `account_id`: A string slice (`&str`) representing the unique identifier of the account.
+    ///
+    /// # Returns
+    ///
+    /// - On success, returns an `Option<Row>`. The `Row` contains an aggregated list
+    ///   of vp_code_hashes (aliased as `code_hashes`) for the account. If the account does not exist,
+    ///   returns `Ok(None)`.
+    /// - On failure, returns an `Error`.
+    ///
+    /// # Usage
+    ///
+    /// This function is useful for tracking the evolution of vp_code_hashes associated with an account over time.
+    /// It provides a comprehensive history, allowing users or systems to understand how the vp_code_hashes
+    /// associated with the account have changed and to identify the current vp_code_hash in use.
     pub async fn account_vp_codes(&self, account_id: &str) -> Result<Option<Row>, Error> {
         let to_query = r#"
             SELECT ARRAY_AGG(vp_code_hash ORDER BY update_id ASC) AS code_hashes
@@ -1175,10 +1213,36 @@ impl Database {
             .map_err(Error::from)
     }
 
+    /// Retrieves a historical list of public key sets associated with a given account.
+    ///
+    /// This function executes a SQL query to aggregate public keys (`ARRAY_AGG`) for each `update_id`
+    /// associated with the specified `account_id`. The keys within each batch are ordered by their `id`.
+    /// The `update_id` serves as a chronological marker, indicating when each set of public keys was
+    /// associated with the account. The most recent set is at the end of the list.
+    ///
+    /// # Parameters
+    ///
+    /// - `account_id`: A string slice (`&str`) representing the unique identifier of the account.
+    ///
+    /// # Returns
+    /// - On success, returns a vector of `Row` instances. Each `Row` contains an aggregated list
+    ///   of public keys (aliased as `public_keys_batch`) for a particular update of the account.
+    /// - An `Error` on failure
+    ///
+    /// # Details
+    ///
+    /// - The function groups (`GROUP BY`) the public keys based on the `update_id` and orders (`ORDER BY`)
+    ///   the overall result set in ascending order of `update_id`.
+    /// - Each `Row` in the returned vector represents a different update to the account, containing a
+    ///   batch of public keys. These batches are ordered chronologically, with the last element in the
+    ///   vector representing the most recent set of public keys associated with the account.
+    ///
+    /// # Usage
+    ///
+    /// This function is useful for tracking the evolution of public keys associated with an account over time.
+    /// It provides a comprehensive history, allowing users or systems to understand how the account's
+    /// public keys have changed and to identify the current set of public keys.
     pub async fn account_public_keys(&self, account_id: &str) -> Result<Vec<Row>, Error> {
-        // same as above, we use update_id as a sort of timestamp, ordering each sets of
-        // public_keys, being the last element in the list the current set assigned for the
-        // account_id at the time this query is executed.
         let to_query = r#"
             SELECT ARRAY_AGG(public_key ORDER BY id ASC) as public_keys_batch
             FROM account_public_keys 
