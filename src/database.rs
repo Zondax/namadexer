@@ -10,7 +10,8 @@ use namada::types::{
     transaction::{self, account::UpdateAccount, pgf::UpdateStewardCommission, TxType},
 };
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
-use sqlx::{query, QueryBuilder, Transaction, Executor};
+use sqlx::Row as TRow;
+use sqlx::{query, Executor, QueryBuilder, Transaction};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -19,7 +20,6 @@ use tendermint_proto::types::evidence::Sum;
 use tendermint_proto::types::CommitSig;
 use tendermint_proto::types::EvidenceList as RawEvidenceList;
 use tracing::{info, instrument};
-use sqlx::Row as TRow;
 
 use crate::{
     DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_DURATION,
@@ -582,7 +582,6 @@ impl Database {
 
             // Decrypted transaction give access to the raw data
             if let TxType::Decrypted(..) = tx.header().tx_type {
-
                 // look for wrapper tx to link to
                 let txs = query(&format!("SELECT * FROM {0}.transactions WHERE block_id IN (SELECT block_id FROM {0}.blocks WHERE header_height = {1});", network, block_height-1))
                     .fetch_all(&mut *sqlx_tx)
