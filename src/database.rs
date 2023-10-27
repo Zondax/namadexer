@@ -1160,17 +1160,17 @@ impl Database {
     /// Returns a list of vp_code_hashes sorted in ascending order using
     /// update_id which act as a kind of timestamp between updates.
     /// In case accound_id does not exists, this method returns Ok(None)
-    pub async fn account_vp_codes(&self, account_id: &str) -> Result<Vec<Row>, Error> {
+    pub async fn account_vp_codes(&self, account_id: &str) -> Result<Option<Row>, Error> {
         let to_query = r#"
-            SELECT vp_code_hash
+            SELECT ARRAY_AGG(vp_code_hash ORDER BY update_id ASC) AS code_hashes
             FROM account_updates
             WHERE account_id = $1
-            ORDER BY update_id ASC;
+            GROUP BY account_id;
         "#;
 
         query(to_query)
             .bind(account_id)
-            .fetch_all(&*self.pool)
+            .fetch_optional(&*self.pool)
             .await
             .map_err(Error::from)
     }
