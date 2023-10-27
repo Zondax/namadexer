@@ -11,7 +11,7 @@ use namada::types::{
 };
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::Row as TRow;
-use sqlx::{query, Executor, QueryBuilder, Transaction};
+use sqlx::{query, QueryBuilder, Transaction};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
