@@ -1,11 +1,11 @@
 use namadexer::{Database, Settings};
-use sqlx::postgres::PgPoolOptions;
 use sqlx::query;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::fs;
-use std::time::Duration;
 use tendermint::block::Block;
+
+const NETWORK: &str = "testnet";
 
 async fn create_db(pool: &PgPool, name: &str) {
     // now create bench database
@@ -24,28 +24,17 @@ async fn destroy_db(pool: &PgPool, name: &str) {
 }
 
 pub async fn create_bench_database(pg_pool: &PgPool, name: &str) -> Database {
-    let config = Settings::new().unwrap();
-    let config = config.database_config();
-
     // lets connect to our default database, so from there
     // we create another database that is going to be used for
     // benches.
     create_db(pg_pool, name).await;
 
-    // Now connect to the just created db
-    let config = format!(
-        "postgres://{}:{}@{}/{}",
-        config.user, config.password, config.host, name,
-    );
+    let mut config = Settings::new().unwrap();
+    config.database.dbname = name.to_string();
 
-    let pool = PgPoolOptions::new()
-        .max_connections(10)
-        .acquire_timeout(Duration::from_secs(30))
-        .connect(&config)
-        .await
-        .expect("Could not connect to bench database");
+    let config = config.database_config();
 
-    Database::with_pool(pool, "public-testnet-12".to_string())
+    Database::new(config, NETWORK).await.unwrap()
 }
 
 pub async fn destroy_bench_database(pg_pool: &PgPool, name: &str) {
@@ -58,9 +47,12 @@ pub fn load_blocks() -> Vec<Block> {
 }
 
 pub async fn helper_db() -> Database {
-    let config = Settings::new().unwrap();
+    let mut config = Settings::new().unwrap();
+    // connect to default postgres database
+    config.database.dbname = "postgres".to_string();
+
     let config = config.database_config();
-    Database::new(config, "public-testnet-12").await.unwrap()
+    Database::new(config, NETWORK).await.unwrap()
 }
 
 pub async fn save_blocks(
