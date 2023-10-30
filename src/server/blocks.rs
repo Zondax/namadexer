@@ -88,13 +88,19 @@ pub struct HashID(
     #[serde(serialize_with = "serialize_hex", deserialize_with = "from_hex")] pub Vec<u8>,
 );
 
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TxShort {
+    pub tx_type: String,
+    pub hash_id: HashID,
+}
+
 /// Relevant information regarding blocks
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct BlockInfo {
     pub block_id: HashID,
     pub header: Header,
     pub last_commit: Option<LastCommitInfo>,
-    pub tx_hashes: Vec<HashID>,
+    pub tx_hashes: Vec<TxShort>,
 }
 
 impl From<BlockInfo> for Header {
