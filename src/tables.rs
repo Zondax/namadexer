@@ -115,3 +115,37 @@ pub fn get_create_commit_signatures_table_query(network: &str) -> String {
         network
     )
 }
+// To store account_updates transactions
+// the update_id is used primarly for getting all the public keys for account_id
+// in a sort of batches, where each batch was a new set of pub_keys for which and account
+// was updated in a account_update transaction.
+pub fn get_create_account_updates_table(network: &str) -> String {
+    // NOTE: We are creating the index here as well so it
+    // is used as  reference by the account_public_keys table.
+    // Otherwise postgres complains when creating that table
+    // due to the missing primary index in account_updates.
+    // Importan to mention that update_id is use to link public keys
+    // to an update in time.
+    format!(
+        "CREATE TABLE IF NOT EXISTS {}.account_updates (
+        update_id SERIAL PRIMARY KEY,
+        account_id TEXT NOT NULL,
+        vp_code_hash BYTEA,
+        threshold INTEGER
+    );",
+        network,
+    )
+}
+
+// To be use by the account_init and account_update transactions
+// any account can have many pub_keys
+pub fn get_create_account_public_keys_table(network: &str) -> String {
+    format!(
+        "CREATE TABLE IF NOT EXISTS {}.account_public_keys (
+        id SERIAL,
+        update_id INTEGER UNIQUE REFERENCES {}.account_updates(update_id),
+        public_key TEXT NOT NULL
+    );",
+        network, network
+    )
+}

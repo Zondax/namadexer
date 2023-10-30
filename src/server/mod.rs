@@ -17,12 +17,14 @@ pub mod blocks;
 pub mod tx;
 pub use blocks::BlockInfo;
 pub use tx::TxInfo;
+pub mod account;
 mod endpoints;
 pub mod shielded;
 mod utils;
 pub(crate) use utils::{from_hex, serialize_hex};
 
 use self::endpoints::{
+    account::get_account_updates,
     block::{get_block_by_hash, get_block_by_height, get_last_block},
     transaction::{get_shielded_tx, get_tx_by_hash},
 };
@@ -44,6 +46,7 @@ fn server_routes(state: ServerState) -> Router<()> {
         .route("/block/last", get(get_last_block))
         .route("/tx/:tx_hash", get(get_tx_by_hash))
         .route("/shielded", get(get_shielded_tx))
+        .route("/account/updates/:account_id", get(get_account_updates))
         .with_state(state)
 }
 

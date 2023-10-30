@@ -1,4 +1,5 @@
 use crate::{config::DatabaseConfig, error::Error, utils};
+
 use borsh::de::BorshDeserialize;
 
 use namada::proto;
@@ -7,7 +8,12 @@ use namada::types::{
     eth_bridge_pool::PendingTransfer,
     key::common::PublicKey,
     token,
-    transaction::{self, account::UpdateAccount, pgf::UpdateStewardCommission, TxType},
+    transaction::{
+        self,
+        account::{InitAccount, UpdateAccount},
+        pgf::UpdateStewardCommission,
+        TxType,
+    },
 };
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::Row as TRow;
@@ -27,6 +33,7 @@ use crate::{
 };
 
 use crate::tables::{
+    get_create_account_public_keys_table, get_create_account_updates_table,
     get_create_block_table_query, get_create_commit_signatures_table_query,
     get_create_evidences_table_query, get_create_transactions_table_query,
     get_create_tx_bond_table_query, get_create_tx_bridge_pool_table_query,
@@ -56,6 +63,7 @@ impl Database {
             "postgres://{}:{}@{}/{}",
             db_config.user, db_config.password, db_config.host, db_config.dbname
         );
+        println!("config: {}", config);
 
         // If timeout setting is not present in the provided configuration,
         // lets use our default timeout.
@@ -95,9 +103,9 @@ impl Database {
     /// - `evidences` Where block's evidence data is stored.
     #[instrument(skip(self))]
     pub async fn create_tables(&self) -> Result<(), Error> {
-        info!("Creating tables if doesn't exist");
+        info!("Creating tables if they don't exist");
 
-        query(format!("CREATE SCHEMA IF NOT EXISTS {}", self.network).as_str())
+        query(&format!("CREATE SCHEMA IF NOT EXISTS {}", self.network))
             .execute(&*self.pool)
             .await?;
 
@@ -126,6 +134,14 @@ impl Database {
             .await?;
 
         query(get_create_tx_bridge_pool_table_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(get_create_account_updates_table(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(get_create_account_public_keys_table(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
@@ -742,14 +758,48 @@ impl Database {
                         // so we can tell what account have changed and how?
                         _ = UpdateStewardCommission::try_from_slice(&data[..])?;
                     }
+                    "tx_init_account" => {
+                        // check that transaction can be parsed
+                        // before inserting it into database.
+                        // later accounts could be updated using
+                        // tx_update_account, however there is not way
+                        // so far to link those transactions to this.
+                        _ = InitAccount::try_from_slice(&data[..])?;
+                    }
                     "tx_update_account" => {
                         // check that transaction can be parsed
                         // before storing it into database
-                        // TODO: Later we might need to create a table
-                        // for this . This would allow us
-                        // to track down what accounts have been updated
-                        // and how.
-                        _ = UpdateAccount::try_from_slice(&data[..])?;
+                        let tx = UpdateAccount::try_from_slice(&data[..])?;
+
+                        let insert_query = format!(
+                            "INSERT INTO {}.account_updates(account_id, vp_code_hash, threshold) 
+                                VALUES ($1, $2, $3) RETURNING update_id",
+                            network
+                        );
+
+                        let update_id: i32 = sqlx::query_scalar(&insert_query)
+                            .bind(tx.addr.encode())
+                            .bind(tx.vp_code_hash.map(|hash| hash.0))
+                            .bind(tx.threshold.map(|t| t as i32))
+                            .fetch_one(&mut *sqlx_tx)
+                            .await?;
+
+                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                            "INSERT INTO {}.account_public_keys(
+                                update_id,
+                                public_key,
+                            )",
+                            network
+                        ));
+
+                        // Insert each key which would have an update_id associated to it,
+                        // allowing querying keys per updates.
+                        let query = query_builder
+                            .push_values(tx.public_keys.iter(), |mut b, key| {
+                                b.push_bind(update_id).push_bind(key.to_string());
+                            })
+                            .build();
+                        query.execute(&mut *sqlx_tx).await?;
                     }
                     _ => {}
                 }
@@ -973,6 +1023,16 @@ impl Database {
         .execute(&*self.pool)
         .await?;
 
+        query(
+            format!(
+                "ALTER TABLE {}.account_public_keys ADD CONSTRAINT pk_id PRIMARY KEY (id);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
+
         Ok(())
     }
 
@@ -1084,6 +1144,129 @@ impl Database {
         );
 
         query(&str)
+            .fetch_all(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
+    /// Retrieves a historical list of thresholds associated with a given account.
+    ///
+    /// This function executes a SQL query to aggregate thresholds (`ARRAY_AGG`) for the specified
+    /// `account_id`. The thresholds are ordered by `update_id`, which serves as a chronological marker,
+    /// indicating the sequence of updates. The most recent threshold is at the end of the list.
+    ///
+    /// # Parameters
+    ///
+    /// - `account_id`: A string slice (`&str`) representing the unique identifier of the account.
+    ///
+    /// # Returns
+    ///
+    /// - On success, returns an `Option<Row>`. The `Row` contains an aggregated list
+    ///   of thresholds (aliased as `thresholds`) for the account. If the account does not exist,
+    ///   returns `Ok(None)`.
+    /// - On failure, returns an `Error`.
+    ///
+    /// # Usage
+    ///
+    /// This function is useful for tracking the evolution of thresholds associated with an account over time.
+    /// It provides a comprehensive history, allowing users or systems to understand how the thresholds
+    /// associated with the account have changed and to identify the current threshold in use.
+    pub async fn account_thresholds(&self, account_id: &str) -> Result<Option<Row>, Error> {
+        let to_query = r#"
+            SELECT ARRAY_AGG(threshold ORDER BY update_id ASC) AS thresholds
+            FROM account_updates
+            WHERE account_id = $1
+            GROUP BY account_id;
+        "#;
+
+        query(to_query)
+            .bind(account_id)
+            .fetch_optional(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
+    /// Retrieves a historical list of vp_code_hashes associated with a given account.
+    ///
+    /// This function executes a SQL query to aggregate vp_code_hashes (`ARRAY_AGG`) for the specified
+    /// `account_id`. The hashes are ordered by `update_id`, which serves as a chronological marker,
+    /// indicating the sequence of updates. The most recent hash is at the end of the list.
+    ///
+    /// # Parameters
+    ///
+    /// - `account_id`: A string slice (`&str`) representing the unique identifier of the account.
+    ///
+    /// # Returns
+    ///
+    /// - On success, returns an `Option<Row>`. The `Row` contains an aggregated list
+    ///   of vp_code_hashes (aliased as `code_hashes`) for the account. If the account does not exist,
+    ///   returns `Ok(None)`.
+    /// - On failure, returns an `Error`.
+    ///
+    /// # Usage
+    ///
+    /// This function is useful for tracking the evolution of vp_code_hashes associated with an account over time.
+    /// It provides a comprehensive history, allowing users or systems to understand how the vp_code_hashes
+    /// associated with the account have changed and to identify the current vp_code_hash in use.
+    pub async fn account_vp_codes(&self, account_id: &str) -> Result<Option<Row>, Error> {
+        let to_query = r#"
+            SELECT ARRAY_AGG(vp_code_hash ORDER BY update_id ASC) AS code_hashes
+            FROM account_updates
+            WHERE account_id = $1
+            GROUP BY account_id;
+        "#;
+
+        query(to_query)
+            .bind(account_id)
+            .fetch_optional(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
+    /// Retrieves a historical list of public key sets associated with a given account.
+    ///
+    /// This function executes a SQL query to aggregate public keys (`ARRAY_AGG`) for each `update_id`
+    /// associated with the specified `account_id`. The keys within each batch are ordered by their `id`.
+    /// The `update_id` serves as a chronological marker, indicating when each set of public keys was
+    /// associated with the account. The most recent set is at the end of the list.
+    ///
+    /// # Parameters
+    ///
+    /// - `account_id`: A string slice (`&str`) representing the unique identifier of the account.
+    ///
+    /// # Returns
+    /// - On success, returns a vector of `Row` instances. Each `Row` contains an aggregated list
+    ///   of public keys (aliased as `public_keys_batch`) for a particular update of the account.
+    /// - An `Error` on failure
+    ///
+    /// # Details
+    ///
+    /// - The function groups (`GROUP BY`) the public keys based on the `update_id` and orders (`ORDER BY`)
+    ///   the overall result set in ascending order of `update_id`.
+    /// - Each `Row` in the returned vector represents a different update to the account, containing a
+    ///   batch of public keys. These batches are ordered chronologically, with the last element in the
+    ///   vector representing the most recent set of public keys associated with the account.
+    ///
+    /// # Usage
+    ///
+    /// This function is useful for tracking the evolution of public keys associated with an account over time.
+    /// It provides a comprehensive history, allowing users or systems to understand how the account's
+    /// public keys have changed and to identify the current set of public keys.
+    pub async fn account_public_keys(&self, account_id: &str) -> Result<Vec<Row>, Error> {
+        let to_query = r#"
+            SELECT ARRAY_AGG(public_key ORDER BY id ASC) as public_keys_batch
+            FROM account_public_keys 
+            WHERE update_id IN (
+                SELECT update_id FROM account_updates WHERE account_id = $1
+            )
+            GROUP BY update_id
+            ORDER BY update_id ASC;
+        "#;
+
+        // Each returned row would contain a vector of public keys formatted as strings.
+        // The column's name is publick_key_batch.
+        query(to_query)
+            .bind(account_id)
             .fetch_all(&*self.pool)
             .await
             .map_err(Error::from)
