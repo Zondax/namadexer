@@ -6,7 +6,7 @@ use sqlx::Row as TRow;
 use tracing::info;
 
 use crate::{
-    server::{blocks::TxShort, blocks::HashID, ServerState},
+    server::{blocks::HashID, blocks::TxShort, ServerState},
     BlockInfo, Error,
 };
 
@@ -19,9 +19,10 @@ async fn get_tx_hashes(
 
     let mut tx_hashes: Vec<TxShort> = vec![];
     for row in rows.iter() {
+        println!("GET_TX_HASHES_ {:?}", row.columns());
         let hash_id = HashID(row.try_get("hash")?);
         let tx_type: String = row.try_get("tx_type")?;
-        tx_hashes.push(TxShort {tx_type, hash_id});
+        tx_hashes.push(TxShort { tx_type, hash_id });
     }
 
     block.tx_hashes = tx_hashes;
