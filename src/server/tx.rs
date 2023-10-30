@@ -28,7 +28,7 @@ use sqlx::Row as TRow;
 // represents the number of columns
 // that db must contains in order to deserialized
 // transactions
-const NUM_TX_COLUMNS: usize = 8;
+const NUM_TX_COLUMNS: usize = 9;
 
 // namada::ibc::applications::transfer::msgs::transfer::TYPE_URL has been made private and can't be access anymore
 const MSG_TRANSFER_TYPE_URL: &str = "/ibc.applications.transfer.v1.MsgTransfer";
@@ -75,6 +75,9 @@ pub struct TxInfo {
     block_id: Vec<u8>,
     /// The transaction type encoded as a string
     tx_type: String,
+    /// id for the wrapper tx if the tx is decrypted. otherwise it is null.
+    #[serde(with = "hex::serde")]
+    wrapper_id: Vec<u8>,
     /// The transaction fee only for tx_type Wrapper (otherwise empty)
     fee_amount_per_gas_unit: String,
     fee_token: String,
@@ -187,6 +190,7 @@ impl TryFrom<Row> for TxInfo {
         let hash: Vec<u8> = row.try_get("hash")?;
         let block_id: Vec<u8> = row.try_get("block_id")?;
         let tx_type: String = row.try_get("tx_type")?;
+        let wrapper_id: Vec<u8> = row.try_get("wrapper_id")?;
         let fee_amount_per_gas_unit = row.try_get("fee_amount_per_gas_unit")?;
         let fee_token = row.try_get("fee_token")?;
         let gas_limit_multiplier = row.try_get("gas_limit_multiplier")?;
@@ -197,6 +201,7 @@ impl TryFrom<Row> for TxInfo {
             hash,
             block_id,
             tx_type,
+            wrapper_id,
             fee_amount_per_gas_unit,
             fee_token,
             gas_limit_multiplier,
