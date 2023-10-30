@@ -10,6 +10,7 @@ use namada::types::{
     transaction::{self, account::UpdateAccount, pgf::UpdateStewardCommission, TxType},
 };
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
+use sqlx::Row as TRow;
 use sqlx::{query, QueryBuilder, Transaction};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -254,6 +255,7 @@ impl Database {
         Self::save_transactions(
             block.data.as_ref(),
             &block_id,
+            block.header.height.value(),
             checksums_map,
             sqlx_tx,
             network,
@@ -527,6 +529,7 @@ impl Database {
     async fn save_transactions<'a>(
         txs: &Vec<Vec<u8>>,
         block_id: &[u8],
+        block_height: u64,
         checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
@@ -553,6 +556,7 @@ impl Database {
                     hash, 
                     block_id, 
                     tx_type,
+                    wrapper_id,
                     fee_amount_per_gas_unit,
                     fee_token,
                     gas_limit_multiplier,
@@ -570,12 +574,21 @@ impl Database {
         // being 8 the number of columns.
         let mut tx_values = Vec::with_capacity(txs.len());
 
+        let mut i: usize = 0;
         for t in txs.iter() {
             let tx = proto::Tx::try_from(t.as_slice()).map_err(|_| Error::InvalidTxData)?;
             let mut code = Default::default();
+            let mut txid_wrapper: Vec<u8> = vec![];
 
             // Decrypted transaction give access to the raw data
             if let TxType::Decrypted(..) = tx.header().tx_type {
+                // look for wrapper tx to link to
+                let txs = query(&format!("SELECT * FROM {0}.transactions WHERE block_id IN (SELECT block_id FROM {0}.blocks WHERE header_height = {1});", network, block_height-1))
+                    .fetch_all(&mut *sqlx_tx)
+                    .await?;
+                txid_wrapper = txs[i].try_get("hash")?;
+                i += 1;
+
                 code = tx
                     .get_section(tx.code_sechash())
                     .and_then(|s| s.code_sec())
@@ -757,6 +770,7 @@ impl Database {
                 tx.header_hash().0.as_slice().to_vec(),
                 block_id.to_vec(),
                 utils::tx_type_name(&tx.header.tx_type),
+                txid_wrapper,
                 fee_amount_per_gas_unit,
                 fee_token,
                 gas_limit_multiplier,
@@ -779,6 +793,7 @@ impl Database {
                     hash,
                     block_id,
                     tx_type,
+                    wrapper_id,
                     fee_amount_per_gas_unit,
                     fee_token,
                     fee_gas_limit_multiplier,
@@ -788,6 +803,7 @@ impl Database {
                     b.push_bind(hash)
                         .push_bind(block_id)
                         .push_bind(tx_type)
+                        .push_bind(wrapper_id)
                         .push_bind(fee_amount_per_gas_unit)
                         .push_bind(fee_token)
                         .push_bind(fee_gas_limit_multiplier as i64)
