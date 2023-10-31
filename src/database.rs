@@ -596,6 +596,8 @@ impl Database {
             let mut code = Default::default();
             let mut txid_wrapper: Vec<u8> = vec![];
 
+            let mut hash_id = tx.header_hash().to_vec();
+
             // Decrypted transaction give access to the raw data
             if let TxType::Decrypted(..) = tx.header().tx_type {
                 // look for wrapper tx to link to
@@ -604,6 +606,9 @@ impl Database {
                     .await?;
                 txid_wrapper = txs[i].try_get("hash")?;
                 i += 1;
+
+                // For unknown reason the header has to be updated before hashing it for its id (https://github.com/Zondax/namadexer/issues/23)
+                hash_id = tx.update_header(TxType::Raw).header_hash().to_vec();
 
                 code = tx
                     .get_section(tx.code_sechash())
@@ -638,7 +643,7 @@ impl Database {
 
                         let query = query_builder
                             .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(tx.header_hash().0.as_slice().to_vec())
+                                b.push_bind(hash_id)
                                     .push_bind(transfer.source.to_string())
                                     .push_bind(transfer.target.to_string())
                                     .push_bind(transfer.token.to_string())
@@ -666,7 +671,7 @@ impl Database {
 
                         let query = query_builder
                             .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(tx.header_hash().0.as_slice().to_vec())
+                                b.push_bind(hash_id)
                                     .push_bind(bond.validator.to_string())
                                     .push_bind(bond.amount.to_string_native())
                                     .push_bind(bond.source.as_ref().map(|s| s.to_string()))
@@ -692,7 +697,7 @@ impl Database {
 
                         let query = query_builder
                             .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(tx.header_hash().0.as_slice().to_vec())
+                                b.push_bind(hash_id)
                                     .push_bind(unbond.validator.to_string())
                                     .push_bind(unbond.amount.to_string_native())
                                     .push_bind(
@@ -727,7 +732,7 @@ impl Database {
 
                         let query = query_builder
                             .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(tx.header_hash().0.as_slice().to_vec())
+                                b.push_bind(hash_id)
                                     .push_bind(tx_bridge.transfer.asset.to_string())
                                     .push_bind(tx_bridge.transfer.recipient.to_string())
                                     .push_bind(tx_bridge.transfer.sender.to_string())
@@ -817,7 +822,7 @@ impl Database {
             }
 
             tx_values.push((
-                tx.header_hash().0.as_slice().to_vec(),
+                hash_id,
                 block_id.to_vec(),
                 utils::tx_type_name(&tx.header.tx_type),
                 txid_wrapper,
