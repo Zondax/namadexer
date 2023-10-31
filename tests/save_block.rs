@@ -28,6 +28,9 @@ mod save_block {
             db.save_block(&block, &checksums_map).await.unwrap();
         }
 
-        assert!(db.create_indexes().await.is_ok());
+        // assert!(db.create_indexes().await.is_ok());
+        db.create_indexes()
+            .await
+            .expect("Something went wrong creating database indexes");
     }
 }
