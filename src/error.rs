@@ -25,9 +25,9 @@ pub enum Error {
     TendermintError(#[from] TError),
     #[error("Tendermint rpc_error: {0}")]
     TendermintRpcError(#[from] TRpcError),
-    #[error("Configuracion error: {0}")]
+    #[error("Configuration error: {0}")]
     Config(#[from] ConfigError),
-    #[error("Configuracion error: {0}")]
+    #[error("Configuration error: {0}")]
     IO(#[from] std::io::Error),
     #[error("Address parsing error: {0}")]
     AddrError(#[from] std::net::AddrParseError),
