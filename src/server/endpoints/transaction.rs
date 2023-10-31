@@ -5,9 +5,11 @@ use axum::{
 use tracing::info;
 
 use crate::{
-    server::{shielded, ServerState, TxInfo},
+    server::{shielded, tx::VoteProposalTx, ServerState, TxInfo},
     Error,
 };
+
+use sqlx::Row as TRow;
 
 pub async fn get_tx_by_hash(
     State(state): State<ServerState>,
@@ -38,4 +40,27 @@ pub async fn get_shielded_tx(
     let shielded_assests_response = shielded::ShieldedAssetsResponse::try_from(&rows)?;
 
     Ok(Json(shielded_assests_response))
+}
+
+pub async fn get_vote_proposal(
+    State(state): State<ServerState>,
+    Path(proposal_id): Path<u64>,
+) -> Result<Json<Option<VoteProposalTx>>, Error> {
+    let vote_proposal_data = state.db.vote_proposal_data(proposal_id).await?;
+
+    let Some(vote_proposal_data) = vote_proposal_data else {
+        return Ok(Json(None));
+    };
+
+    let mut tx = VoteProposalTx::try_from(vote_proposal_data)?;
+
+    let delegations = state.db.vote_proposal_delegations(proposal_id).await?;
+    let delegations: Vec<String> = delegations
+        .into_iter()
+        .map(|row| row.try_get::<String, _>("delegator_id"))
+        .collect::<Result<Vec<String>, _>>()?;
+
+    tx.delegations = delegations;
+
+    Ok(Json(Some(tx)))
 }

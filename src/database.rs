@@ -1346,6 +1346,36 @@ impl Database {
             .map_err(Error::from)
     }
 
+    pub async fn vote_proposal_data(&self, proposal_id: u64) -> Result<Option<Row>, Error> {
+        let query = format!(
+            "SELECT * FROM {}.vote_proposal WHERE vote_proposal_id = $1",
+            self.network
+        );
+
+        // Execute the query and fetch the first row (if any)
+        let result = sqlx::query(&query)
+            .bind(proposal_id.to_be_bytes())
+            .fetch_optional(&*self.pool)
+            .await?;
+
+        Ok(result)
+    }
+
+    pub async fn vote_proposal_delegations(&self, proposal_id: u64) -> Result<Vec<Row>, Error> {
+        let q = format!(
+            "SELECT delegator_id 
+                FROM {}.delegations 
+                WHERE vote_proposal_id = $1",
+            self.network
+        );
+
+        query(&q)
+            .bind(proposal_id.to_be_bytes())
+            .fetch_all(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
     pub fn pool(&self) -> &PgPool {
         self.pool.as_ref()
     }
