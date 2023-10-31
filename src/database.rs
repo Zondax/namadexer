@@ -63,7 +63,6 @@ impl Database {
             "postgres://{}:{}@{}/{}",
             db_config.user, db_config.password, db_config.host, db_config.dbname
         );
-        println!("config: {}", config);
 
         // If timeout setting is not present in the provided configuration,
         // lets use our default timeout.

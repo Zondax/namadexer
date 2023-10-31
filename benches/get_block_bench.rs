@@ -34,7 +34,7 @@ async fn get_blocks(db: &Database, blocks: Range<u32>) {
             .expect("Failed parsing row -> BlockInfo")
             .block_id;
 
-        _ = tx_ids(db, &block_id).await;
+        _ = tx_ids(db, block_id.0.as_ref()).await;
     }
 }
 

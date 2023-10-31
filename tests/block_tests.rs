@@ -1,23 +1,16 @@
 mod utils;
 
-use utils::start_server;
+use utils::{start_server, testing_db};
 
 #[cfg(test)]
 mod block_tests {
     use namadexer::BlockInfo;
-    use namadexer::Database;
-    use namadexer::Settings;
 
     use super::*;
 
     #[tokio::test]
     async fn block_by_id() {
-        // start server
-        let cfg = Settings::new().unwrap();
-
-        let db = Database::new(cfg.database_config(), "public-testnet-14")
-            .await
-            .unwrap();
+        let db = testing_db().await;
 
         // start a testing server an gives back the server address
         let addr = start_server(db).unwrap();
@@ -48,12 +41,7 @@ mod block_tests {
 
     #[tokio::test]
     async fn last_block() {
-        // start server
-        let cfg = Settings::new().unwrap();
-
-        let db = Database::new(cfg.database_config(), "public-testnet-14")
-            .await
-            .unwrap();
+        let db = testing_db().await;
 
         // start a testing server an gives back the server address
         let addr = start_server(db).unwrap();
@@ -77,12 +65,8 @@ mod block_tests {
 
     #[tokio::test]
     async fn block_with_tx() {
+        let db = testing_db().await;
         // start server
-        let cfg = Settings::new().unwrap();
-
-        let db = Database::new(cfg.database_config(), "public-testnet-14")
-            .await
-            .unwrap();
 
         // start a testing server an gives back the server address
         let addr = start_server(db).unwrap();

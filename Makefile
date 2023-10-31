@@ -58,4 +58,5 @@ compose:
 	docker compose -f contrib/docker-compose.yaml up
 
 test: download-checksum
-	cargo test -- --nocapture
+	cargo test save_block -- --nocapture
+	cargo test block_tests -- --nocapture
