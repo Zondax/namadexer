@@ -1,6 +1,6 @@
 # Indexer
 
-The indexer is written in Rust and store blocks and transaction to a PostgreSQL database. It requires to have access to a Namada node throught its RPC enpoints.
+The indexer is written in Rust and store blocks and transaction to a PostgreSQL database. It requires to have access to a Namada node through its RPC enpoints.
 
 ## Configuration
 
