@@ -131,7 +131,8 @@ pub fn get_create_account_updates_table(network: &str) -> String {
         update_id SERIAL PRIMARY KEY,
         account_id TEXT NOT NULL,
         vp_code_hash BYTEA,
-        threshold INTEGER
+        threshold INTEGER,
+        tx_id BYTEA NOT NULL UNIQUE
     );",
         network,
     )
@@ -140,11 +141,69 @@ pub fn get_create_account_updates_table(network: &str) -> String {
 // To be use by the account_init and account_update transactions
 // any account can have many pub_keys
 pub fn get_create_account_public_keys_table(network: &str) -> String {
+    // We remove the UNIQUE constrain as it will allow us to have many
+    // rows(public_keys) pointing to the same update_id, which is correct
+    // as many keys are associated to the same account.
     format!(
         "CREATE TABLE IF NOT EXISTS {}.account_public_keys (
         id SERIAL,
-        update_id INTEGER UNIQUE REFERENCES {}.account_updates(update_id),
+        update_id INTEGER REFERENCES {}.account_updates(update_id),
         public_key TEXT NOT NULL
+    );",
+        network, network
+    )
+}
+
+pub fn get_create_vote_proposal_table(network: &str) -> String {
+    // NOTE: the id is converted to be_bytes because it is
+    // defined as a u64, and postgres only supports u32?
+    // the vote is a boolean, Yay means true, otherwise vote
+    // is a Nay.
+    // regarding vote_type, here is its definition:
+    //
+    // pub enum VoteType {
+    //     /// A default vote without Memo
+    //     Default,
+    //     /// A vote for the PGF stewards
+    //     PGFSteward,
+    //     /// A vote for a PGF payment proposal
+    //     PGFPayment,
+    // }
+    // so for now we made the vote_type nullable, as it
+    // is valid only for vote = true cases. and we will use
+    // the integer representation for each field:
+    // Default = 0
+    // PGFSteward = 1
+    // PGFPayment = 2
+    // finally the delegations field is a vector of address,
+    // it would be store in a different table, as this is a one
+    // to many relationship
+    //
+    // Finally we create the PRIMARY KEY index here
+    // to avoid issues, the reason is, because it is use as
+    // a reference for the delegations table.
+    format!(
+        "CREATE TABLE IF NOT EXISTS {}.vote_proposal (
+        vote_proposal_id BYTEA NOT NULL PRIMARY KEY,
+        vote BOOL NOT NULL,
+        vote_default BOOL NOT NULL,
+        voter TEXT NOT NULL,
+        tx_id BYTEA NOT NULL
+    );",
+        network
+    )
+}
+
+// store the delegations addresses associated to an specific vote_proposal_id
+pub fn get_create_delegations_table(network: &str) -> String {
+    // NOTE: The vote_proposal_id is in this case not defined as unique
+    // because we do not know with certainty if delegator are prohibited
+    // of being part of another vote_proposal over time.
+    format!(
+        "CREATE TABLE IF NOT EXISTS {}.delegations (
+        id SERIAL,
+        vote_proposal_id BYTEA REFERENCES {}.vote_proposal(vote_proposal_id),
+        delegator_id TEXT NOT NULL
     );",
         network, network
     )
