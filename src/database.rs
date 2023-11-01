@@ -334,7 +334,7 @@ impl Database {
     }
 
     /// Save a block and commit database
-    #[instrument(skip(block_id, signatures))]
+    #[instrument(skip(block_id, signatures, network))]
     pub async fn save_commit_sinatures<'a>(
         block_id: &[u8],
         signatures: &Vec<CommitSig>,
@@ -444,7 +444,7 @@ impl Database {
     /// Save all the evidences in the list, it is up to the caller to
     /// call sqlx_tx.commit().await?; for the changes to take place in
     /// database.
-    #[instrument(skip(evidences, block_id, sqlx_tx))]
+    #[instrument(skip(evidences, block_id, sqlx_tx, network))]
     async fn save_evidences<'a>(
         evidences: RawEvidenceList,
         block_id: &[u8],
@@ -550,7 +550,7 @@ impl Database {
     /// Save all the transactions in txs, it is up to the caller to
     /// call sqlx_tx.commit().await?; for the changes to take place in
     /// database.
-    #[instrument(skip(txs, block_id, sqlx_tx, checksums_map))]
+    #[instrument(skip(txs, block_id, sqlx_tx, checksums_map, network))]
     async fn save_transactions<'a>(
         txs: &Vec<Vec<u8>>,
         block_id: &[u8],
@@ -632,10 +632,11 @@ impl Database {
                 let type_tx = checksums_map.get(&code_hex).unwrap_or(&unknown_type);
                 let data = tx.data().ok_or(Error::InvalidTxData)?;
 
+                info!("Saving {}", type_tx);
+
                 // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
                 match type_tx.as_str() {
                     "tx_transfer" => {
-                        info!("Saving tx_transfer");
                         let transfer = token::Transfer::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
@@ -665,7 +666,6 @@ impl Database {
                         query.execute(&mut *sqlx_tx).await?;
                     }
                     "tx_bond" => {
-                        info!("Saving tx_bond");
                         let bond = transaction::pos::Bond::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
@@ -691,7 +691,6 @@ impl Database {
                         query.execute(&mut *sqlx_tx).await?;
                     }
                     "tx_unbond" => {
-                        info!("Saving tx_unbond");
                         let unbond = transaction::pos::Unbond::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
@@ -723,7 +722,6 @@ impl Database {
                     }
                     // this is an ethereum transaction
                     "tx_bridge_pool" => {
-                        info!("Saving tx_bridge_pool");
                         // Only TransferToEthereum type is supported at the moment by namada and us.
                         let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
 
@@ -755,8 +753,6 @@ impl Database {
                         query.execute(&mut *sqlx_tx).await?;
                     }
                     "tx_vote_proposal" => {
-                        info!("Saving tx_vote_proposal");
-
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
                             "INSERT INTO {}.vote_proposal(
                                 vote_proposal_id,
@@ -808,7 +804,6 @@ impl Database {
                         // nothing to do here, only check that data is a valid publicKey
                         // otherwise this transaction must not make it into
                         // the database.
-                        info!("Saving tx_reveal_pk");
                         _ = PublicKey::try_from_slice(&data[..])?;
                     }
                     "tx_resign_steward" => {
@@ -819,8 +814,6 @@ impl Database {
                     "tx_update_steward_commission" => {
                         // Not much to do, just, check that the address this transactions
                         // holds in the data field is correct, or at least parsed succesfully.
-                        // TODO: We might need to create a new table for this?
-                        // so we can tell what account have changed and how?
                         _ = UpdateStewardCommission::try_from_slice(&data[..])?;
                     }
                     "tx_init_account" => {
