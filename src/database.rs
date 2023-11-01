@@ -576,6 +576,7 @@ impl Database {
         }
 
         info!(message = "Saving transactions");
+
         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
             "INSERT INTO {}.transactions(
                     hash, 
@@ -852,7 +853,7 @@ impl Database {
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
                             "INSERT INTO {}.account_public_keys(
                                 update_id,
-                                public_key,
+                                public_key
                             )",
                             network
                         ));
