@@ -334,7 +334,7 @@ impl Database {
     }
 
     /// Save a block and commit database
-    #[instrument(skip(block_id, signatures, network))]
+    #[instrument(skip(block_id, signatures, sqlx_tx, network))]
     pub async fn save_commit_sinatures<'a>(
         block_id: &[u8],
         signatures: &Vec<CommitSig>,
@@ -550,7 +550,7 @@ impl Database {
     /// Save all the transactions in txs, it is up to the caller to
     /// call sqlx_tx.commit().await?; for the changes to take place in
     /// database.
-    #[instrument(skip(txs, block_id, sqlx_tx, checksums_map, network))]
+    #[instrument(skip(txs, block_id, sqlx_tx, checksums_map, block_height, network))]
     async fn save_transactions<'a>(
         txs: &Vec<Vec<u8>>,
         block_id: &[u8],
@@ -632,7 +632,7 @@ impl Database {
                 let type_tx = checksums_map.get(&code_hex).unwrap_or(&unknown_type);
                 let data = tx.data().ok_or(Error::InvalidTxData)?;
 
-                info!("Saving {}", type_tx);
+                info!("Saving {} transaction", type_tx);
 
                 // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
                 match type_tx.as_str() {
