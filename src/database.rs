@@ -3,6 +3,7 @@ use crate::{config::DatabaseConfig, error::Error, utils};
 use borsh::de::BorshDeserialize;
 
 use namada::proto;
+use namada::types::transaction::governance::VoteProposalData;
 use namada::types::{
     address::Address,
     eth_bridge_pool::PendingTransfer,
@@ -35,9 +36,10 @@ use crate::{
 use crate::tables::{
     get_create_account_public_keys_table, get_create_account_updates_table,
     get_create_block_table_query, get_create_commit_signatures_table_query,
-    get_create_evidences_table_query, get_create_transactions_table_query,
-    get_create_tx_bond_table_query, get_create_tx_bridge_pool_table_query,
-    get_create_tx_transfer_table_query,
+    get_create_delegations_table, get_create_evidences_table_query,
+    get_create_transactions_table_query, get_create_tx_bond_table_query,
+    get_create_tx_bridge_pool_table_query, get_create_tx_transfer_table_query,
+    get_create_vote_proposal_table,
 };
 
 use metrics::{histogram, increment_counter};
@@ -141,6 +143,14 @@ impl Database {
             .await?;
 
         query(get_create_account_public_keys_table(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(get_create_vote_proposal_table(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(get_create_delegations_table(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
@@ -324,7 +334,7 @@ impl Database {
     }
 
     /// Save a block and commit database
-    #[instrument(skip(block_id, signatures))]
+    #[instrument(skip(block_id, signatures, sqlx_tx, network))]
     pub async fn save_commit_sinatures<'a>(
         block_id: &[u8],
         signatures: &Vec<CommitSig>,
@@ -434,7 +444,7 @@ impl Database {
     /// Save all the evidences in the list, it is up to the caller to
     /// call sqlx_tx.commit().await?; for the changes to take place in
     /// database.
-    #[instrument(skip(evidences, block_id, sqlx_tx))]
+    #[instrument(skip(evidences, block_id, sqlx_tx, network))]
     async fn save_evidences<'a>(
         evidences: RawEvidenceList,
         block_id: &[u8],
@@ -540,7 +550,7 @@ impl Database {
     /// Save all the transactions in txs, it is up to the caller to
     /// call sqlx_tx.commit().await?; for the changes to take place in
     /// database.
-    #[instrument(skip(txs, block_id, sqlx_tx, checksums_map))]
+    #[instrument(skip(txs, block_id, sqlx_tx, checksums_map, block_height, network))]
     async fn save_transactions<'a>(
         txs: &Vec<Vec<u8>>,
         block_id: &[u8],
@@ -566,6 +576,7 @@ impl Database {
         }
 
         info!(message = "Saving transactions");
+
         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
             "INSERT INTO {}.transactions(
                     hash, 
@@ -621,10 +632,11 @@ impl Database {
                 let type_tx = checksums_map.get(&code_hex).unwrap_or(&unknown_type);
                 let data = tx.data().ok_or(Error::InvalidTxData)?;
 
+                info!("Saving {} transaction", type_tx);
+
                 // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
                 match type_tx.as_str() {
                     "tx_transfer" => {
-                        info!("Saving tx_transfer");
                         let transfer = token::Transfer::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
@@ -654,7 +666,6 @@ impl Database {
                         query.execute(&mut *sqlx_tx).await?;
                     }
                     "tx_bond" => {
-                        info!("Saving tx_bond");
                         let bond = transaction::pos::Bond::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
@@ -680,7 +691,6 @@ impl Database {
                         query.execute(&mut *sqlx_tx).await?;
                     }
                     "tx_unbond" => {
-                        info!("Saving tx_unbond");
                         let unbond = transaction::pos::Unbond::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
@@ -712,7 +722,6 @@ impl Database {
                     }
                     // this is an ethereum transaction
                     "tx_bridge_pool" => {
-                        info!("Saving tx_bridge_pool");
                         // Only TransferToEthereum type is supported at the moment by namada and us.
                         let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
 
@@ -743,11 +752,58 @@ impl Database {
                             .build();
                         query.execute(&mut *sqlx_tx).await?;
                     }
+                    "tx_vote_proposal" => {
+                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                            "INSERT INTO {}.vote_proposal(
+                                vote_proposal_id,
+                                vote,
+                                vote_default,
+                                voter,
+                                tx_id
+                            )",
+                            network
+                        ));
+
+                        let tx_data = VoteProposalData::try_from_slice(&data[..])?;
+
+                        // vote_proposal_id is an u64, due to lack of support for unsigned
+                        // integers, we store it as be bytes.
+                        let proposal_id = tx_data.id.to_be_bytes();
+
+                        let query = query_builder
+                            .push_values(std::iter::once(0), |mut b, _| {
+                                b.push_bind(proposal_id)
+                                    .push_bind(tx_data.vote.is_yay())
+                                    .push_bind(tx_data.vote.is_default_vote())
+                                    .push_bind(tx_data.voter.encode())
+                                    .push_bind(&hash_id);
+                            })
+                            .build();
+                        query.execute(&mut *sqlx_tx).await?;
+
+                        // now store delegators
+                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                            "INSERT INTO {}.delegations(
+                                vote_proposal_id,
+                                delegator_id
+                            )",
+                            network
+                        ));
+
+                        // Insert each key which would have an update_id associated to it,
+                        // allowing querying keys per updates.
+                        // this also does batch insertion
+                        let query = query_builder
+                            .push_values(tx_data.delegations.iter(), |mut b, key| {
+                                b.push_bind(proposal_id).push_bind(key.encode());
+                            })
+                            .build();
+                        query.execute(&mut *sqlx_tx).await?;
+                    }
                     "tx_reveal_pk" => {
                         // nothing to do here, only check that data is a valid publicKey
                         // otherwise this transaction must not make it into
                         // the database.
-                        info!("Saving tx_reveal_pk");
                         _ = PublicKey::try_from_slice(&data[..])?;
                     }
                     "tx_resign_steward" => {
@@ -758,8 +814,6 @@ impl Database {
                     "tx_update_steward_commission" => {
                         // Not much to do, just, check that the address this transactions
                         // holds in the data field is correct, or at least parsed succesfully.
-                        // TODO: We might need to create a new table for this?
-                        // so we can tell what account have changed and how?
                         _ = UpdateStewardCommission::try_from_slice(&data[..])?;
                     }
                     "tx_init_account" => {
@@ -776,8 +830,8 @@ impl Database {
                         let tx = UpdateAccount::try_from_slice(&data[..])?;
 
                         let insert_query = format!(
-                            "INSERT INTO {}.account_updates(account_id, vp_code_hash, threshold) 
-                                VALUES ($1, $2, $3) RETURNING update_id",
+                            "INSERT INTO {}.account_updates(account_id, vp_code_hash, threshold, tx_id) 
+                                VALUES ($1, $2, $3, $4) RETURNING update_id",
                             network
                         );
 
@@ -785,13 +839,14 @@ impl Database {
                             .bind(tx.addr.encode())
                             .bind(tx.vp_code_hash.map(|hash| hash.0))
                             .bind(tx.threshold.map(|t| t as i32))
+                            .bind(&hash_id)
                             .fetch_one(&mut *sqlx_tx)
                             .await?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
                             "INSERT INTO {}.account_public_keys(
                                 update_id,
-                                public_key,
+                                public_key
                             )",
                             network
                         ));
@@ -1037,6 +1092,16 @@ impl Database {
         .execute(&*self.pool)
         .await?;
 
+        query(
+            format!(
+                "ALTER TABLE {}.delegations ADD CONSTRAINT del_id PRIMARY KEY (id);",
+                self.network
+            )
+            .as_str(),
+        )
+        .execute(&*self.pool)
+        .await?;
+
         Ok(())
     }
 
@@ -1270,6 +1335,36 @@ impl Database {
         // The column's name is publick_key_batch.
         query(to_query)
             .bind(account_id)
+            .fetch_all(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
+    pub async fn vote_proposal_data(&self, proposal_id: u64) -> Result<Option<Row>, Error> {
+        let query = format!(
+            "SELECT * FROM {}.vote_proposal WHERE vote_proposal_id = $1",
+            self.network
+        );
+
+        // Execute the query and fetch the first row (if any)
+        let result = sqlx::query(&query)
+            .bind(proposal_id.to_be_bytes())
+            .fetch_optional(&*self.pool)
+            .await?;
+
+        Ok(result)
+    }
+
+    pub async fn vote_proposal_delegations(&self, proposal_id: u64) -> Result<Vec<Row>, Error> {
+        let q = format!(
+            "SELECT delegator_id 
+                FROM {}.delegations 
+                WHERE vote_proposal_id = $1",
+            self.network
+        );
+
+        query(&q)
+            .bind(proposal_id.to_be_bytes())
             .fetch_all(&*self.pool)
             .await
             .map_err(Error::from)

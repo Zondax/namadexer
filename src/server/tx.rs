@@ -211,3 +211,40 @@ impl TryFrom<Row> for TxInfo {
         })
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct VoteProposalTx {
+    pub id: u64,
+    pub vote: bool,
+    pub is_default: bool,
+    pub voter: String,
+    pub delegations: Vec<String>,
+    #[serde(with = "hex::serde")]
+    pub tx_id: Vec<u8>,
+}
+
+impl TryFrom<Row> for VoteProposalTx {
+    type Error = Error;
+
+    fn try_from(value: Row) -> Result<Self, Self::Error> {
+        let id = value.try_get::<[u8; std::mem::size_of::<u64>()], _>("vote_proposal_id")?;
+        let id = u64::from_be_bytes(id);
+
+        let vote = value.try_get::<bool, _>("vote")?;
+        let is_default = value.try_get::<bool, _>("vote_default")?;
+        let voter = value.try_get::<String, _>("voter")?;
+        let tx_id = value.try_get::<Vec<u8>, _>("tx_id")?;
+
+        // empty this comes from another table.
+        let delegations = vec![];
+
+        Ok(Self {
+            id,
+            vote,
+            is_default,
+            voter,
+            delegations,
+            tx_id,
+        })
+    }
+}

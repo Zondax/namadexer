@@ -10,13 +10,15 @@ pub const SERVER_ADDR: &str = "127.0.0.1";
 pub const SERVER_PORT: u16 = 30303;
 
 pub const TENDERMINT_ADDR: &str = "http://127.0.0.1";
-pub const INDEXER_PORT: u16 = 27657;
+pub const INDEXER_PORT: u16 = 26657;
 
 pub const JAEGER_HOST: &str = "localhost";
 pub const JAEGER_PORT: u16 = 6831;
 
 pub const PROMETHEUS_HOST: &str = "localhost";
-pub const PROMETHEUS_PORT: u16 = 6831;
+pub const PROMETHEUS_PORT: u16 = 9000;
+
+pub const DEFAULT_NETWORK: &str = "public-testnet-14";
 
 #[derive(Debug, Deserialize)]
 pub struct IndexerConfig {
@@ -115,7 +117,7 @@ impl Default for DatabaseConfig {
     }
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 pub struct Settings {
     pub log_level: String,
     pub network: String,
@@ -124,6 +126,20 @@ pub struct Settings {
     pub indexer: IndexerConfig,
     pub jaeger: JaegerConfig,
     pub prometheus: PrometheusConfig,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            log_level: Default::default(),
+            network: DEFAULT_NETWORK.to_string(),
+            database: Default::default(),
+            server: Default::default(),
+            indexer: Default::default(),
+            jaeger: Default::default(),
+            prometheus: Default::default(),
+        }
+    }
 }
 
 impl Settings {
