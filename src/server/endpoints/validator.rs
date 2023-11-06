@@ -1,12 +1,12 @@
-use serde::{Deserialize, Serialize};
 use axum::{
-    extract::{Path, State, Query},
+    extract::{Path, Query, State},
     Json,
 };
+use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgRow as Row;
 use sqlx::Row as TRow;
-use tracing::{info, instrument};
 use std::collections::HashMap;
+use tracing::{info, instrument};
 
 use crate::{server::ServerState, Error};
 
@@ -27,7 +27,7 @@ impl TryFrom<&Row> for CommitCount {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Default)]
-pub struct UptimeValue{
+pub struct UptimeValue {
     pub uptime: f64,
 }
 
@@ -37,7 +37,7 @@ pub async fn get_validator_uptime(
     Query(params): Query<HashMap<String, i32>>,
 ) -> Result<Json<UptimeValue>, Error> {
     info!("calling /validator/:validator_address/uptime");
-    
+
     let start = params.get("start");
     let end = params.get("end");
 
@@ -52,8 +52,9 @@ pub async fn get_validator_uptime(
         ranger_size = (e - s).into();
     }
 
-    let uv = UptimeValue{ uptime: (cc.0 as f64)/ranger_size };
-
+    let uv = UptimeValue {
+        uptime: (cc.0 as f64) / ranger_size,
+    };
 
     Ok(Json(uv))
 }

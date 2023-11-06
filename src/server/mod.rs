@@ -49,7 +49,10 @@ fn server_routes(state: ServerState) -> Router<()> {
         .route("/tx/vote_proposal/:proposal_id", get(get_vote_proposal))
         .route("/shielded", get(get_shielded_tx))
         .route("/account/updates/:account_id", get(get_account_updates))
-        .route("/validator/:validator_address/uptime", get(get_validator_uptime))
+        .route(
+            "/validator/:validator_address/uptime",
+            get(get_validator_uptime),
+        )
         .with_state(state)
 }
 

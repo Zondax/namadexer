@@ -1372,8 +1372,12 @@ impl Database {
 
     // Return the number of commits signed by the `validator_address` in a range of 500 blocks.
     // It is use to calculate the validator uptime.
-    pub async fn validator_uptime(&self, validator_address: &[u8], start: Option<&i32>, end: Option<&i32>) -> Result<Row, Error> {
-
+    pub async fn validator_uptime(
+        &self,
+        validator_address: &[u8],
+        start: Option<&i32>,
+        end: Option<&i32>,
+    ) -> Result<Row, Error> {
         // if no parameters defined we return result on the last 500 blocks
         let mut q = format!(
             "SELECT COUNT(*)
