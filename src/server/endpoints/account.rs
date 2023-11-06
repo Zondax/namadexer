@@ -42,26 +42,34 @@ pub async fn get_account_updates(
     State(state): State<ServerState>,
     Path(account_id): Path<String>,
 ) -> Result<Json<Option<AccountUpdates>>, Error> {
-    let thresholds_result = state.db.account_thresholds(&account_id).await?;
+    let Some(thresholds) = state.db.account_thresholds(&account_id).await? else {
+        // account_id does not exists
+        return Ok(Json(None))
+    };
 
-    let Some(thresholds_row) = thresholds_result else {
+    let Some(hashes) = state.db.account_vp_codes(&account_id).await? else {
+        // account_id does not exists
         return Ok(Json(None));
     };
 
-    let Some(code_row) = state.db.account_vp_codes(&account_id).await? else {
-        return Ok(Json(None));
-    };
-
-    let public_keys_result = state.db.account_public_keys(&account_id).await?;
-
-    let thresholds = thresholds_row
+    // if there are not thresholds updates associated with this accound_id
+    // our query will return an empty lists, thanks to the usage of the
+    // COALESCE operator
+    let thresholds = thresholds
         .try_get::<Vec<i32>, _>("thresholds")?
         .into_iter()
         .map(|v| v as u8)
-        .collect::<Vec<u8>>(); // Specify the type for collect
+        .collect();
 
-    // Add vp_codes to the combined row
-    let code_hashes: Vec<String> = code_row.try_get("code_hashes")?;
+    // If there are not vp_code_hashes updates associated to this account_id
+    // our query function will return an empty lists.
+    let code_hashes = hashes
+        .try_get::<Vec<Vec<u8>>, _>("code_hashes")?
+        .into_iter()
+        .map(hex::encode)
+        .collect();
+
+    let public_keys_result = state.db.account_public_keys(&account_id).await?;
 
     // Add public_keys to the combined row
     let public_keys = public_keys_result

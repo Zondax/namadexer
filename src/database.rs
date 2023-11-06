@@ -1314,7 +1314,7 @@ impl Database {
 
         query(&to_query)
             .bind(account_id)
-            .fetch_optional(&*self.pool) // Changed from fetch_optional to fetch_one
+            .fetch_optional(&*self.pool)
             .await
             .map_err(Error::from)
     }
