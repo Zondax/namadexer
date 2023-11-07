@@ -44,7 +44,7 @@ pub async fn get_account_updates(
 ) -> Result<Json<Option<AccountUpdates>>, Error> {
     let Some(thresholds) = state.db.account_thresholds(&account_id).await? else {
         // account_id does not exists
-        return Ok(Json(None))
+        return Ok(Json(None));
     };
 
     let Some(hashes) = state.db.account_vp_codes(&account_id).await? else {
