@@ -26,6 +26,8 @@ use tendermint::block::Block;
 use tendermint_proto::types::evidence::Sum;
 use tendermint_proto::types::CommitSig;
 use tendermint_proto::types::EvidenceList as RawEvidenceList;
+use tendermint_rpc::endpoint::block_results;
+
 use tracing::{info, instrument};
 
 use crate::{
@@ -162,6 +164,7 @@ impl Database {
     #[instrument(skip(block, checksums_map, sqlx_tx))]
     async fn save_block_impl<'a>(
         block: &Block,
+        block_results: &block_results::Response,
         checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
@@ -281,6 +284,7 @@ impl Database {
             block.data.as_ref(),
             &block_id,
             block.header.height.value(),
+            block_results,
             checksums_map,
             sqlx_tx,
             network,
@@ -295,6 +299,7 @@ impl Database {
     pub async fn save_block(
         &self,
         block: &Block,
+        block_results: &block_results::Response,
         checksums_map: &HashMap<String, String>,
     ) -> Result<(), Error> {
         let instant = tokio::time::Instant::now();
@@ -307,7 +312,14 @@ impl Database {
         // succeeded.
         let mut sqlx_tx = self.transaction().await?;
 
-        Self::save_block_impl(block, checksums_map, &mut sqlx_tx, self.network.as_str()).await?;
+        Self::save_block_impl(
+            block,
+            block_results,
+            checksums_map,
+            &mut sqlx_tx,
+            self.network.as_str(),
+        )
+        .await?;
 
         let res = sqlx_tx.commit().await.map_err(Error::from);
 
@@ -434,11 +446,12 @@ impl Database {
     #[instrument(skip(block, checksums_map, sqlx_tx, network))]
     pub async fn save_block_tx<'a>(
         block: &Block,
+        block_results: &block_results::Response,
         checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
     ) -> Result<(), Error> {
-        Self::save_block_impl(block, checksums_map, sqlx_tx, network).await
+        Self::save_block_impl(block, block_results, checksums_map, sqlx_tx, network).await
     }
 
     /// Save all the evidences in the list, it is up to the caller to
@@ -555,6 +568,7 @@ impl Database {
         txs: &Vec<Vec<u8>>,
         block_id: &[u8],
         block_height: u64,
+        block_results: &block_results::Response,
         checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
@@ -587,7 +601,8 @@ impl Database {
                     fee_token,
                     gas_limit_multiplier,
                     code,
-                    data
+                    data,
+                    return_code
                 )",
             network
         ));
@@ -603,22 +618,39 @@ impl Database {
         let mut i: usize = 0;
         for t in txs.iter() {
             let tx = proto::Tx::try_from(t.as_slice()).map_err(|_| Error::InvalidTxData)?;
+
             let mut code = Default::default();
             let mut txid_wrapper: Vec<u8> = vec![];
 
             let mut hash_id = tx.header_hash().to_vec();
 
+            let mut return_code: Option<i32> = None;
+
             // Decrypted transaction give access to the raw data
             if let TxType::Decrypted(..) = tx.header().tx_type {
+                // For unknown reason the header has to be updated before hashing it for its id (https://github.com/Zondax/namadexer/issues/23)
+                hash_id = tx.clone().update_header(TxType::Raw).header_hash().to_vec();
+
+                // Look for the return code in the block results
+                let end_events = block_results.end_block_events.clone().unwrap(); // Safe to use unwrap because if it is not present then something is broken.
+
+                // Look for the reurn code associated to the tx
+                for event in end_events {
+                    // we assume it will always be in this order
+                    if event.attributes[5].key == "hash"
+                        && event.attributes[5].value.to_ascii_lowercase() == hex::encode(&hash_id)
+                    {
+                        // using unwrap here is ok because we assume it is always going to be a number unless there is a bug in the node
+                        return_code = Some(event.attributes[0].value.parse().unwrap());
+                    }
+                }
+
                 // look for wrapper tx to link to
                 let txs = query(&format!("SELECT * FROM {0}.transactions WHERE block_id IN (SELECT block_id FROM {0}.blocks WHERE header_height = {1});", network, block_height-1))
                     .fetch_all(&mut *sqlx_tx)
                     .await?;
                 txid_wrapper = txs[i].try_get("hash")?;
                 i += 1;
-
-                // For unknown reason the header has to be updated before hashing it for its id (https://github.com/Zondax/namadexer/issues/23)
-                hash_id = tx.clone().update_header(TxType::Raw).header_hash().to_vec();
 
                 code = tx
                     .get_section(tx.code_sechash())
@@ -885,6 +917,7 @@ impl Database {
                 gas_limit_multiplier,
                 code,
                 tx.data().map(|v| v.to_vec()),
+                return_code,
             ));
         }
 
@@ -908,6 +941,7 @@ impl Database {
                     fee_gas_limit_multiplier,
                     code,
                     data,
+                    return_code,
                 )| {
                     b.push_bind(hash)
                         .push_bind(block_id)
@@ -917,7 +951,8 @@ impl Database {
                         .push_bind(fee_token)
                         .push_bind(fee_gas_limit_multiplier as i64)
                         .push_bind(code)
-                        .push_bind(data);
+                        .push_bind(data)
+                        .push_bind(return_code);
                 },
             )
             .build()

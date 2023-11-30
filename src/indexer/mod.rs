@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tendermint::block::Block;
 use tendermint::block::Height;
+use tendermint_rpc::endpoint::block_results;
 use tendermint_rpc::{self, Client, HttpClient};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
@@ -30,8 +31,11 @@ const WAIT_FOR_BLOCK: u64 = 10;
 // processes.
 const MAX_BLOCKS_IN_CHANNEL: usize = 100;
 
+// Block info required to be saved
+type BlockInfo = (Block, block_results::Response);
+
 #[instrument(skip(client))]
-async fn get_block(block_height: u32, client: &HttpClient) -> Block {
+async fn get_block(block_height: u32, client: &HttpClient) -> (Block, block_results::Response) {
     loop {
         let height = Height::from(block_height);
         tracing::trace!(message = "Requesting block: ", block_height);
@@ -55,7 +59,14 @@ async fn get_block(block_height: u32, client: &HttpClient) -> Block {
                     dur.as_secs_f64(),
                     &labels
                 );
-                return resp.block;
+
+                // If we successfully retrieved a block we want to get the block result.
+                // It is used to know if a transaction has been successfully or not.
+                let block_results = get_block_results(height, client).await;
+
+                if let Ok(br) = block_results {
+                    return (resp.block, br);
+                }
             }
 
             Err(err) => {
@@ -97,9 +108,57 @@ async fn get_block(block_height: u32, client: &HttpClient) -> Block {
     }
 }
 
+#[instrument(name = "Indexer::block_results", skip(client))]
+async fn get_block_results(
+    block_height: Height,
+    client: &HttpClient,
+) -> Result<block_results::Response, Error> {
+    let response = client.block_results(block_height).await;
+
+    match response {
+        Ok(r) => {
+            dbg!(&r);
+            Ok(r)
+        }
+        Err(err) => {
+            match &err.0 {
+                tendermint_rpc::error::ErrorDetail::Response(e) => {
+                    tracing::warn!(
+                            "Failed to retreive block at height {}. Trying again in 10 seconds. (REASON : {})",
+                            block_height,
+                            e,
+                        );
+                    // Wait WAIT_FOR_BLOCK seconds before asking for new block
+                    // because it has probably not been validated yet
+                    tokio::time::sleep(Duration::from_secs(WAIT_FOR_BLOCK)).await;
+                }
+                tendermint_rpc::error::ErrorDetail::Http(e) => {
+                    tracing::warn!(
+                        "Failed to retreive block at height {}. (REASON : {})",
+                        block_height,
+                        e,
+                    );
+                }
+                _ => {
+                    tracing::warn!(
+                        "Failed to retreive block at height {}. (REASON : {})",
+                        block_height,
+                        err.detail(),
+                    );
+                }
+            }
+
+            return Err(Error::TendermintRpcError(err));
+        }
+    }
+}
+
 #[allow(clippy::let_with_type_underscore)]
 #[instrument(name = "Indexer::blocks_stream", skip(client, block))]
-fn blocks_stream(block: u64, client: &HttpClient) -> impl Stream<Item = Block> + '_ {
+fn blocks_stream(
+    block: u64,
+    client: &HttpClient,
+) -> impl Stream<Item = (Block, block_results::Response)> + '_ {
     futures::stream::iter(block..).then(move |i| async move { get_block(i as u32, client).await })
 }
 
@@ -163,7 +222,8 @@ pub async fn start_indexing(db: Database, config: &IndexerConfig) -> Result<(), 
 
     // Block consumer that stores block into the database
     while let Some(block) = rx.recv().await {
-        if let Err(e) = db.save_block(&block, &checksums_map).await {
+        // block is now the block info and the block results
+        if let Err(e) = db.save_block(&block.0, &block.1, &checksums_map).await {
             // shutdown producer task
             shutdown.store(true, Ordering::Relaxed);
             tracing::error!("Closing block producer task due to an error saving last block: {e}");
@@ -172,7 +232,7 @@ pub async fn start_indexing(db: Database, config: &IndexerConfig) -> Result<(), 
             return Err(e);
         }
 
-        info!("Block: {} saved", block.header.height.value());
+        info!("Block: {} saved", block.0.header.height.value());
 
         let height = Height::from(current_height);
 
@@ -200,9 +260,9 @@ fn spawn_block_producer(
     current_height: u64,
     client: HttpClient,
     producer_shutdown: Arc<AtomicBool>,
-) -> (Receiver<Block>, JoinHandle<Result<(), Error>>) {
+) -> (Receiver<BlockInfo>, JoinHandle<Result<(), Error>>) {
     // Create a channel
-    let (tx, rx): (Sender<Block>, Receiver<Block>) =
+    let (tx, rx): (Sender<BlockInfo>, Receiver<BlockInfo>) =
         tokio::sync::mpsc::channel(MAX_BLOCKS_IN_CHANNEL);
 
     // Spawn the task

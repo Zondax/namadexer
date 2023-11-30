@@ -14,6 +14,7 @@ use tendermint_rpc::Error as TRpcError;
 use tokio::sync::mpsc::error::SendError;
 // use tendermint_config::Error as TCError;
 // use tokio_postgres::error::Error as DbError;
+use tendermint_rpc::endpoint::block_results;
 
 #[derive(Debug, ThisError)]
 pub enum Error {
@@ -60,8 +61,8 @@ pub enum Error {
     ParseIntError(#[from] ParseIntError),
 }
 
-impl From<SendError<tendermint::Block>> for Error {
-    fn from(_: SendError<tendermint::Block>) -> Self {
+impl From<SendError<(tendermint::Block, block_results::Response)>> for Error {
+    fn from(_: SendError<(tendermint::Block, block_results::Response)>) -> Self {
         Self::SendError
     }
 }

@@ -8,17 +8,25 @@ use std::io::Write;
 async fn main() {
     let client = HttpClient::new("http://194.163.180.253:26657").unwrap();
     let mut current_height: u32 = 1;
-    let mut f = File::create("./blocks_vector.json").unwrap();
+    let mut f1 = File::create("./blocks_vector.json").unwrap();
+    let mut f2 = File::create("./block_results_vector.json").unwrap();
 
-    write!(f, "[").unwrap();
+    write!(f1, "[").unwrap();
+    write!(f2, "[").unwrap();
 
     loop {
         let height = Height::from(current_height);
-        let response = client.block(height).await;
+        let response1 = client.block(height).await;
+        let response2 = client.block_results(height).await;
 
-        if let Ok(resp) = response {
+        if let Ok(resp) = response1 {
             let b = serde_json::to_string(&resp.block).unwrap();
-            write!(f, "{}", b).unwrap();
+            write!(f1, "{}", b).unwrap();
+        }
+
+        if let Ok(resp) = response2 {
+            let b = serde_json::to_string(&resp).unwrap();
+            write!(f2, "{}", b).unwrap();
         }
 
         current_height += 1;
@@ -27,8 +35,10 @@ async fn main() {
             break;
         }
 
-        write!(f, ",").unwrap();
+        write!(f1, ",").unwrap();
+        write!(f2, ",").unwrap();
     }
 
-    write!(f, "]").unwrap();
+    write!(f1, "]").unwrap();
+    write!(f2, "]").unwrap();
 }
