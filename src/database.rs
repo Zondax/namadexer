@@ -26,9 +26,8 @@ use tendermint::block::Block;
 use tendermint_proto::types::evidence::Sum;
 use tendermint_proto::types::CommitSig;
 use tendermint_proto::types::EvidenceList as RawEvidenceList;
-use tracing::{info, instrument, trace};
 use tendermint_rpc::endpoint::block_results;
-
+use tracing::{info, instrument, trace};
 
 use crate::{
     DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_DURATION,
