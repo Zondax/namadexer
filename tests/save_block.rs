@@ -5,6 +5,7 @@ mod save_block {
     use namadexer::utils::load_checksums;
     use std::fs;
     use tendermint::block::Block;
+    use tendermint_rpc::endpoint::block_results;
 
     use crate::utils::{create_test_db, destroy_test_db, helper_db, TESTING_DB_NAME};
 
@@ -21,11 +22,13 @@ mod save_block {
 
         let data = fs::read_to_string("./tests/blocks_vector.json").unwrap();
         let blocks: Vec<Block> = serde_json::from_str(&data).unwrap();
+        let data = fs::read_to_string("./tests/block_results_vector.json").unwrap();
+        let block_results: Vec<block_results::Response> = serde_json::from_str(&data).unwrap();
 
         db.create_tables().await.unwrap();
 
-        for block in blocks {
-            db.save_block(&block, &checksums_map).await.unwrap();
+        for i in 0..blocks.len() {
+            db.save_block(&blocks[i], &block_results[i], &checksums_map).await.unwrap();
         }
 
         // assert!(db.create_indexes().await.is_ok());
