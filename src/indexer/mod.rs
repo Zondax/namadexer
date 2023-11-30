@@ -59,7 +59,7 @@ async fn get_block(block_height: u32, client: &HttpClient) -> (Block, block_resu
 
                 // If we successfully retrieved a block we want to get the block result.
                 // It is used to know if a transaction has been successfully or not.
-                let block_results = get_block_results(height, &client).await;
+                let block_results = get_block_results(height, client).await;
 
                 if let Ok(br) = block_results {
                     return (resp.block, br);
