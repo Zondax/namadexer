@@ -260,15 +260,10 @@ fn spawn_block_producer(
     current_height: u64,
     client: HttpClient,
     producer_shutdown: Arc<AtomicBool>,
-) -> (
-    Receiver<BlockInfo>,
-    JoinHandle<Result<(), Error>>,
-) {
+) -> (Receiver<BlockInfo>, JoinHandle<Result<(), Error>>) {
     // Create a channel
-    let (tx, rx): (
-        Sender<BlockInfo>,
-        Receiver<BlockInfo>,
-    ) = tokio::sync::mpsc::channel(MAX_BLOCKS_IN_CHANNEL);
+    let (tx, rx): (Sender<BlockInfo>, Receiver<BlockInfo>) =
+        tokio::sync::mpsc::channel(MAX_BLOCKS_IN_CHANNEL);
 
     // Spawn the task
     let handler = tokio::spawn(async move {
