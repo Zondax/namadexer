@@ -31,6 +31,9 @@ const WAIT_FOR_BLOCK: u64 = 10;
 // processes.
 const MAX_BLOCKS_IN_CHANNEL: usize = 100;
 
+// Block info required to be saved
+type BlockInfo = (Block, block_results::Response);
+
 #[instrument(skip(client))]
 async fn get_block(block_height: u32, client: &HttpClient) -> (Block, block_results::Response) {
     loop {
@@ -258,13 +261,13 @@ fn spawn_block_producer(
     client: HttpClient,
     producer_shutdown: Arc<AtomicBool>,
 ) -> (
-    Receiver<(Block, block_results::Response)>,
+    Receiver<BlockInfo>,
     JoinHandle<Result<(), Error>>,
 ) {
     // Create a channel
     let (tx, rx): (
-        Sender<(Block, block_results::Response)>,
-        Receiver<(Block, block_results::Response)>,
+        Sender<BlockInfo>,
+        Receiver<BlockInfo>,
     ) = tokio::sync::mpsc::channel(MAX_BLOCKS_IN_CHANNEL);
 
     // Spawn the task

@@ -28,7 +28,9 @@ mod save_block {
         db.create_tables().await.unwrap();
 
         for i in 0..blocks.len() {
-            db.save_block(&blocks[i], &block_results[i], &checksums_map).await.unwrap();
+            db.save_block(&blocks[i], &block_results[i], &checksums_map)
+                .await
+                .unwrap();
         }
 
         // assert!(db.create_indexes().await.is_ok());

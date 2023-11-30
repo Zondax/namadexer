@@ -41,5 +41,4 @@ async fn main() {
 
     write!(f1, "]").unwrap();
     write!(f2, "]").unwrap();
-
 }
