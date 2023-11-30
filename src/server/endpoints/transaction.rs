@@ -55,10 +55,16 @@ pub async fn get_vote_proposal(
     let mut tx = VoteProposalTx::try_from(vote_proposal_data)?;
 
     let delegations = state.db.vote_proposal_delegations(proposal_id).await?;
+    // TODO: is it ok to have vote_proposals with empty delegator list?
+
     let delegations: Vec<String> = delegations
         .into_iter()
-        .map(|row| row.try_get::<String, _>("delegator_id"))
-        .collect::<Result<Vec<String>, _>>()?;
+        .filter_map(|row| {
+            row.try_get::<Option<String>, _>("delegator_id")
+                .ok()
+                .flatten()
+        })
+        .collect::<Vec<String>>();
 
     tx.delegations = delegations;
 

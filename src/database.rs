@@ -27,8 +27,7 @@ use tendermint_proto::types::evidence::Sum;
 use tendermint_proto::types::CommitSig;
 use tendermint_proto::types::EvidenceList as RawEvidenceList;
 use tendermint_rpc::endpoint::block_results;
-
-use tracing::{info, instrument};
+use tracing::{info, instrument, trace};
 
 use crate::{
     DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_DURATION,
@@ -814,23 +813,26 @@ impl Database {
                         query.execute(&mut *sqlx_tx).await?;
 
                         // now store delegators
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.delegations(
+                        // if there are indeed delegator addresses in the list.
+                        if !tx_data.delegations.is_empty() {
+                            let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                                "INSERT INTO {}.delegations(
                                 vote_proposal_id,
                                 delegator_id
                             )",
-                            network
-                        ));
+                                network
+                            ));
 
-                        // Insert each key which would have an update_id associated to it,
-                        // allowing querying keys per updates.
-                        // this also does batch insertion
-                        let query = query_builder
-                            .push_values(tx_data.delegations.iter(), |mut b, key| {
-                                b.push_bind(proposal_id).push_bind(key.encode());
-                            })
-                            .build();
-                        query.execute(&mut *sqlx_tx).await?;
+                            // Insert each key which would have an update_id associated to it,
+                            // allowing querying keys per updates.
+                            // this also does batch insertion
+                            let query = query_builder
+                                .push_values(tx_data.delegations.iter(), |mut b, key| {
+                                    b.push_bind(proposal_id).push_bind(key.encode());
+                                })
+                                .build();
+                            query.execute(&mut *sqlx_tx).await?;
+                        }
                     }
                     "tx_reveal_pk" => {
                         // nothing to do here, only check that data is a valid publicKey
@@ -875,22 +877,27 @@ impl Database {
                             .fetch_one(&mut *sqlx_tx)
                             .await?;
 
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.account_public_keys(
+                        // Insert only valid public_key values, omiting empty ones
+                        if !tx.public_keys.is_empty() {
+                            trace!("Storing {} public_keys", tx.public_keys.len());
+
+                            let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                                "INSERT INTO {}.account_public_keys(
                                 update_id,
                                 public_key
                             )",
-                            network
-                        ));
+                                network
+                            ));
 
-                        // Insert each key which would have an update_id associated to it,
-                        // allowing querying keys per updates.
-                        let query = query_builder
-                            .push_values(tx.public_keys.iter(), |mut b, key| {
-                                b.push_bind(update_id).push_bind(key.to_string());
-                            })
-                            .build();
-                        query.execute(&mut *sqlx_tx).await?;
+                            // Insert each key which would have an update_id associated to it,
+                            // allowing querying keys per updates.
+                            let query = query_builder
+                                .push_values(tx.public_keys.iter(), |mut b, key| {
+                                    b.push_bind(update_id).push_bind(key.to_string());
+                                })
+                                .build();
+                            query.execute(&mut *sqlx_tx).await?;
+                        }
                     }
                     _ => {}
                 }
@@ -1265,8 +1272,10 @@ impl Database {
     /// # Returns
     ///
     /// - On success, returns an `Option<Row>`. The `Row` contains an aggregated list
-    ///   of thresholds (aliased as `thresholds`) for the account. If the account does not exist,
-    ///   returns `Ok(None)`.
+    ///   of thresholds (aliased as `thresholds`) for the account. If `account_id` does not exists
+    ///   this will return Ok(None), otherwise Ok(Some(Row)) is returned, containing lists
+    ///   of all thresholds associated with that account, or an empty lists if no threshold updates
+    ///   have happend.
     /// - On failure, returns an `Error`.
     ///
     /// # Usage
@@ -1275,14 +1284,24 @@ impl Database {
     /// It provides a comprehensive history, allowing users or systems to understand how the thresholds
     /// associated with the account have changed and to identify the current threshold in use.
     pub async fn account_thresholds(&self, account_id: &str) -> Result<Option<Row>, Error> {
-        let to_query = r#"
-            SELECT ARRAY_AGG(threshold ORDER BY update_id ASC) AS thresholds
-            FROM account_updates
-            WHERE account_id = $1
-            GROUP BY account_id;
-        "#;
+        // NOTE: there are two scenarios:
+        // - account_id does not exists in such case this query will return Ok(None), because we
+        // use query.fetch_optional()
+        // - There are not updates including thresholds so far, in that case we use
+        // COALESCE which return a [] empty list instead of null.
+        // doing so we ensure that None is returned in case account_id does not exists.
+        // otherwise a valid row containing a lists, either full or empty.
+        let to_query = format!(
+            "
+        SELECT COALESCE(ARRAY_AGG(threshold ORDER BY update_id ASC), ARRAY[]::int[]) AS thresholds
+        FROM {}.account_updates
+        WHERE account_id = $1
+        GROUP BY account_id;
+        ",
+            self.network
+        );
 
-        query(to_query)
+        query(&to_query)
             .bind(account_id)
             .fetch_optional(&*self.pool)
             .await
@@ -1302,8 +1321,8 @@ impl Database {
     /// # Returns
     ///
     /// - On success, returns an `Option<Row>`. The `Row` contains an aggregated list
-    ///   of vp_code_hashes (aliased as `code_hashes`) for the account. If the account does not exist,
-    ///   returns `Ok(None)`.
+    ///   of vp_code_hashes (aliased as `code_hashes`) for the account. if `account_id` does not exists,
+    ///   it returns `Ok(None)`.
     /// - On failure, returns an `Error`.
     ///
     /// # Usage
@@ -1312,14 +1331,22 @@ impl Database {
     /// It provides a comprehensive history, allowing users or systems to understand how the vp_code_hashes
     /// associated with the account have changed and to identify the current vp_code_hash in use.
     pub async fn account_vp_codes(&self, account_id: &str) -> Result<Option<Row>, Error> {
-        let to_query = r#"
-            SELECT ARRAY_AGG(vp_code_hash ORDER BY update_id ASC) AS code_hashes
-            FROM account_updates
+        // NOTE: there are two scenarios:
+        // - account_id does not exists in such case this query will return Ok(None), because we
+        // use query.fetch_optional()
+        // - There are not updates including vp_code_hashe so far, in that case we use
+        // COALESCE which return a [] empty list instead of null.
+        let to_query = format!(
+            "
+            SELECT COALESCE(ARRAY_AGG(vp_code_hash ORDER BY update_id ASC), ARRAY[]::bytea[]) AS code_hashes
+            FROM {}.account_updates
             WHERE account_id = $1
             GROUP BY account_id;
-        "#;
+            ",
+            self.network
+        );
 
-        query(to_query)
+        query(&to_query)
             .bind(account_id)
             .fetch_optional(&*self.pool)
             .await
@@ -1338,8 +1365,9 @@ impl Database {
     /// - `account_id`: A string slice (`&str`) representing the unique identifier of the account.
     ///
     /// # Returns
-    /// - On success, returns a vector of `Row` instances. Each `Row` contains an aggregated list
-    ///   of public keys (aliased as `public_keys_batch`) for a particular update of the account.
+    /// - On success, returns Ok(None) if there is no account_id or public_keys associated to it.
+    ///   otherwise Ok(Some(Row)) containing the lists of public_keys_batches associated to this
+    ///   account.
     /// - An `Error` on failure
     ///
     /// # Details
@@ -1356,19 +1384,22 @@ impl Database {
     /// It provides a comprehensive history, allowing users or systems to understand how the account's
     /// public keys have changed and to identify the current set of public keys.
     pub async fn account_public_keys(&self, account_id: &str) -> Result<Vec<Row>, Error> {
-        let to_query = r#"
+        let to_query = format!(
+            "
             SELECT ARRAY_AGG(public_key ORDER BY id ASC) as public_keys_batch
-            FROM account_public_keys 
+            FROM {}.account_public_keys 
             WHERE update_id IN (
-                SELECT update_id FROM account_updates WHERE account_id = $1
+                SELECT update_id FROM {}.account_updates WHERE account_id = $1
             )
             GROUP BY update_id
             ORDER BY update_id ASC;
-        "#;
+        ",
+            self.network, self.network
+        );
 
         // Each returned row would contain a vector of public keys formatted as strings.
         // The column's name is publick_key_batch.
-        query(to_query)
+        query(&to_query)
             .bind(account_id)
             .fetch_all(&*self.pool)
             .await
@@ -1382,12 +1413,11 @@ impl Database {
         );
 
         // Execute the query and fetch the first row (if any)
-        let result = sqlx::query(&query)
+        sqlx::query(&query)
             .bind(proposal_id.to_be_bytes())
             .fetch_optional(&*self.pool)
-            .await?;
-
-        Ok(result)
+            .await
+            .map_err(Error::from)
     }
 
     pub async fn vote_proposal_delegations(&self, proposal_id: u64) -> Result<Vec<Row>, Error> {
