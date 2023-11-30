@@ -61,10 +61,9 @@ async fn get_block(block_height: u32, client: &HttpClient) -> (Block, block_resu
                 // It is used to know if a transaction has been successfully or not.
                 let block_results = get_block_results(height, &client).await;
 
-                if let Ok(br) = block_results  {
+                if let Ok(br) = block_results {
                     return (resp.block, br);
                 }
-
             }
 
             Err(err) => {
@@ -107,14 +106,17 @@ async fn get_block(block_height: u32, client: &HttpClient) -> (Block, block_resu
 }
 
 #[instrument(name = "Indexer::block_results", skip(client))]
-async fn get_block_results(block_height: Height, client: &HttpClient) -> Result<block_results::Response, Error> {
+async fn get_block_results(
+    block_height: Height,
+    client: &HttpClient,
+) -> Result<block_results::Response, Error> {
     let response = client.block_results(block_height).await;
 
     match response {
         Ok(r) => {
             dbg!(&r);
             Ok(r)
-        },
+        }
         Err(err) => {
             match &err.0 {
                 tendermint_rpc::error::ErrorDetail::Response(e) => {
@@ -126,7 +128,6 @@ async fn get_block_results(block_height: Height, client: &HttpClient) -> Result<
                     // Wait WAIT_FOR_BLOCK seconds before asking for new block
                     // because it has probably not been validated yet
                     tokio::time::sleep(Duration::from_secs(WAIT_FOR_BLOCK)).await;
-
                 }
                 tendermint_rpc::error::ErrorDetail::Http(e) => {
                     tracing::warn!(
@@ -151,7 +152,10 @@ async fn get_block_results(block_height: Height, client: &HttpClient) -> Result<
 
 #[allow(clippy::let_with_type_underscore)]
 #[instrument(name = "Indexer::blocks_stream", skip(client, block))]
-fn blocks_stream(block: u64, client: &HttpClient) -> impl Stream<Item = (Block, block_results::Response)> + '_ {
+fn blocks_stream(
+    block: u64,
+    client: &HttpClient,
+) -> impl Stream<Item = (Block, block_results::Response)> + '_ {
     futures::stream::iter(block..).then(move |i| async move { get_block(i as u32, client).await })
 }
 
@@ -216,7 +220,7 @@ pub async fn start_indexing(db: Database, config: &IndexerConfig) -> Result<(), 
     // Block consumer that stores block into the database
     while let Some(block) = rx.recv().await {
         // block is now the block info and the block results
-        if let Err(e) = db.save_block(&block.0,&block.1, &checksums_map).await {
+        if let Err(e) = db.save_block(&block.0, &block.1, &checksums_map).await {
             // shutdown producer task
             shutdown.store(true, Ordering::Relaxed);
             tracing::error!("Closing block producer task due to an error saving last block: {e}");
@@ -253,10 +257,15 @@ fn spawn_block_producer(
     current_height: u64,
     client: HttpClient,
     producer_shutdown: Arc<AtomicBool>,
-) -> (Receiver<(Block, block_results::Response)>, JoinHandle<Result<(), Error>>) {
+) -> (
+    Receiver<(Block, block_results::Response)>,
+    JoinHandle<Result<(), Error>>,
+) {
     // Create a channel
-    let (tx, rx): (Sender<(Block, block_results::Response)>, Receiver<(Block, block_results::Response)>) =
-        tokio::sync::mpsc::channel(MAX_BLOCKS_IN_CHANNEL);
+    let (tx, rx): (
+        Sender<(Block, block_results::Response)>,
+        Receiver<(Block, block_results::Response)>,
+    ) = tokio::sync::mpsc::channel(MAX_BLOCKS_IN_CHANNEL);
 
     // Spawn the task
     let handler = tokio::spawn(async move {

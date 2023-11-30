@@ -312,7 +312,14 @@ impl Database {
         // succeeded.
         let mut sqlx_tx = self.transaction().await?;
 
-        Self::save_block_impl(block, block_results, checksums_map, &mut sqlx_tx, self.network.as_str()).await?;
+        Self::save_block_impl(
+            block,
+            block_results,
+            checksums_map,
+            &mut sqlx_tx,
+            self.network.as_str(),
+        )
+        .await?;
 
         let res = sqlx_tx.commit().await.map_err(Error::from);
 
@@ -619,7 +626,6 @@ impl Database {
 
             let mut return_code: Option<i32> = None;
 
-
             // Decrypted transaction give access to the raw data
             if let TxType::Decrypted(..) = tx.header().tx_type {
                 // For unknown reason the header has to be updated before hashing it for its id (https://github.com/Zondax/namadexer/issues/23)
@@ -631,11 +637,13 @@ impl Database {
                 // Look for the reurn code associated to the tx
                 for event in end_events {
                     // we assume it will always be in this order
-                    if event.attributes[5].key == "hash" && event.attributes[5].value.to_ascii_lowercase() == hex::encode(&hash_id) {
+                    if event.attributes[5].key == "hash"
+                        && event.attributes[5].value.to_ascii_lowercase() == hex::encode(&hash_id)
+                    {
                         // using unwrap here is ok because we assume it is always going to be a number unless there is a bug in the node
                         return_code = Some(event.attributes[0].value.parse().unwrap());
                     }
-                }   
+                }
 
                 // look for wrapper tx to link to
                 let txs = query(&format!("SELECT * FROM {0}.transactions WHERE block_id IN (SELECT block_id FROM {0}.blocks WHERE header_height = {1});", network, block_height-1))
