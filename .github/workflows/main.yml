@@ -12,7 +12,7 @@ env:
 jobs:
   build:
     name: Build
-    runs-on: [self-hosted, linux, x64]
+    runs-on: zondax-runners
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -28,7 +28,7 @@ jobs:
 
   fmt:
     name: Rustfmt
-    runs-on: [self-hosted, linux, x64]
+    runs-on: zondax-runners
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -42,7 +42,7 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: [self-hosted, linux, x64]
+    runs-on: zondax-runners
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable

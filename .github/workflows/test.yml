@@ -12,7 +12,7 @@ env:
 jobs:
   sync_test:
     name: Testing syncing
-    runs-on: [self-hosted, linux, x64]
+    runs-on: zondax-runners
     services:
       postgres:
         image: postgres:15

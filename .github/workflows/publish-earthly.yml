@@ -20,7 +20,7 @@ on:
 
 jobs:
   build:
-    runs-on: [self-hosted, linux, x64]
+    runs-on: zondax-runners
     container:
       image: earthly/earthly:v0.7.21
       env:
