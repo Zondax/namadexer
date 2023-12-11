@@ -646,11 +646,9 @@ impl Database {
                                     // using unwrap here is ok because we assume it is always going to be a number unless there is a bug in the node
                                     return_code = Some(attr.value.parse().unwrap());
                                 }
-
                             }
                         }
                     }
-
                 }
 
                 // look for wrapper tx to link to
