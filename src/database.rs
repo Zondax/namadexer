@@ -635,13 +635,22 @@ impl Database {
 
                 // Look for the reurn code associated to the tx
                 for event in end_events {
-                    // we assume it will always be in this order
-                    if event.attributes[5].key == "hash"
-                        && event.attributes[5].value.to_ascii_lowercase() == hex::encode(&hash_id)
-                    {
-                        // using unwrap here is ok because we assume it is always going to be a number unless there is a bug in the node
-                        return_code = Some(event.attributes[0].value.parse().unwrap());
+                    for attr in event.attributes {
+                        // We look to confirm hash of transaction
+                        if attr.key == "hash"
+                            && attr.value.to_ascii_lowercase() == hex::encode(&hash_id)
+                        {
+                            // Now we look for the return code
+                            for attr in event.attributes {
+                                if attr.key == "code" {
+                                    // using unwrap here is ok because we assume it is always going to be a number unless there is a bug in the node
+                                    return_code = Some(attr.value.parse().unwrap());
+                                }
+
+                            }
+                        }
                     }
+
                 }
 
                 // look for wrapper tx to link to
