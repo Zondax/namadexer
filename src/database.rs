@@ -635,13 +635,13 @@ impl Database {
 
                 // Look for the reurn code associated to the tx
                 for event in end_events {
-                    for attr in event.attributes {
+                    for attr in event.attributes.iter() {
                         // We look to confirm hash of transaction
                         if attr.key == "hash"
                             && attr.value.to_ascii_lowercase() == hex::encode(&hash_id)
                         {
                             // Now we look for the return code
-                            for attr in event.attributes {
+                            for attr in event.attributes.iter() {
                                 if attr.key == "code" {
                                     // using unwrap here is ok because we assume it is always going to be a number unless there is a bug in the node
                                     return_code = Some(attr.value.parse().unwrap());
