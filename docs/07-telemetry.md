@@ -1,3 +1,5 @@
+# Telemetry
+
 ## Indexer Application Telemetry Documentation
 
 ### Overview
