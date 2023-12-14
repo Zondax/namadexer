@@ -1,26 +1,31 @@
 use crate::error::Error;
-use borsh::BorshDeserialize;
-use namada::types::address::Address;
-use namada::types::key::common::PublicKey;
-use namada::types::{
-    token,
-    transaction::{
-        account::{InitAccount, UpdateAccount},
-        governance::VoteProposalData,
-        pgf::UpdateStewardCommission,
-        pos::{Bond, InitValidator, Unbond, Withdraw},
+use namada_sdk::core::types::key::common::PublicKey;
+use namada_sdk::core::types::transaction::pos::BecomeValidator;
+use namada_sdk::ibc::apps::transfer::types::msgs::transfer::MsgTransfer;
+use namada_sdk::{
+    borsh::BorshDeserialize,
+    core::types::{
+        address::Address,
+        eth_bridge_pool::PendingTransfer,
+        transaction::{
+            governance::VoteProposalData,
+            pgf::UpdateStewardCommission,
+            pos::{Bond, Unbond, Withdraw},
+        },
+    },
+    core::types::{
+        token,
+        transaction::account::{InitAccount, UpdateAccount},
     },
 };
 
+use namada_sdk::core::ibc::primitives::proto::Any;
 use prost::Message;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::utils::serialize_optional_hex;
-use namada::ibc_proto::google::protobuf::Any;
-use namada::types::eth_bridge_pool::PendingTransfer;
-
-use namada::ibc::applications::transfer::msgs::transfer::MsgTransfer;
 
 use sqlx::postgres::PgRow as Row;
 use sqlx::Row as TRow;
@@ -40,7 +45,7 @@ pub enum TxDecoded {
     Bond(Bond),
     RevealPK(PublicKey),
     VoteProposal(VoteProposalData),
-    InitValidator(Box<InitValidator>),
+    BecomeValidator(Box<BecomeValidator>),
     Unbond(Unbond),
     Withdraw(Withdraw),
     InitAccount(InitAccount),
@@ -130,8 +135,8 @@ impl TxInfo {
                 "tx_vote_proposal" => {
                     VoteProposalData::try_from_slice(&self.data()).map(TxDecoded::VoteProposal)?
                 }
-                "tx_init_validator" => InitValidator::try_from_slice(&self.data())
-                    .map(|t| TxDecoded::InitValidator(Box::new(t)))?,
+                "tx_init_validator" => BecomeValidator::try_from_slice(&self.data())
+                    .map(|t| TxDecoded::BecomeValidator(Box::new(t)))?,
                 "tx_unbond" => Unbond::try_from_slice(&self.data()).map(TxDecoded::Unbond)?,
                 "tx_withdraw" => Withdraw::try_from_slice(&self.data()).map(TxDecoded::Withdraw)?,
                 "tx_init_account" => {
