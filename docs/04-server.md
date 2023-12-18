@@ -21,13 +21,13 @@ serve_at = "0.0.0.0"
 port = 30303
 ```
 
-## Enpoints
+## Endpoints
 
 The list of endpoints available.
 
 ## /block/height/:block_height
 
-This enpoint look for a specific block by its `height`.
+This endpoint look for a specific block by its `height`.
 
 Example:
 ```
