@@ -1,6 +1,6 @@
 # Indexer
 
-The indexer is written in Rust and store blocks and transaction to a PostgreSQL database. It requires to have access to a Namada node through its RPC enpoints.
+The indexer is written in Rust and store blocks and transactions in a PostgreSQL database. It requires to have access to a Namada node through its RPC endpoints.
 
 ## Configuration
 
@@ -28,7 +28,7 @@ In option it is possible to activate the `prometheus` feature or `jeager` for a 
 
 ## Starting the indexer
 
-In order to start the indexer we will need to pass the configuration file path to the environement variable `INDEXER_CONFIG_PATH`.
+In order to start the indexer we will need to pass the configuration file path to the environment variable `INDEXER_CONFIG_PATH`.
 
 ```
 $ INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" ./indexer
@@ -92,7 +92,7 @@ Referenced by:
 
 ### Transactions
 
-The `transactions` table contains all the transactions that either encrypted or decrypted (defined by the `tx_type`). The decrypted raw data can then be find under `data` and its corresponding `code` value can be used for decoding the transactions on the server side.
+The `transactions` table contains all the transactions that either encrypted or decrypted (defined by the `tx_type`). The decrypted raw data can then be found under `data` and its corresponding `code` value can be used for decoding the transactions on the server side.
 
 NOTE: it doesn't seem to be worth storing the encrypted data as no computation can be done over it. If a specific use case is mentioned it can be added.
 
@@ -116,7 +116,7 @@ Foreign-key constraints:
 
 ### Evidences
 
-The `evidences` table contains the evidences of validators misbehavior. Only one evidence is being used in Namada : Duplicate Vote Evidence.
+The `evidences` table contains the evidences of validators misbehavior. Only one evidence is being used in Namada: Duplicate Vote Evidence.
 
 ```
 \d evidences
