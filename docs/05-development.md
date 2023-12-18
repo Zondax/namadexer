@@ -46,7 +46,7 @@ services:
     command: ["/bin/bash", "-c", "/usr/local/bin/server"]
 ```
 
-The `Settings.toml` contains the required configuration data to connect to the Namada node and to the database. We also need the `checksums.json` file from the Namada node. It maps the hash code to the transaction type and is needed for deseriliazing transactions in the indexer and in the server.
+The `Settings.toml` contains the required configuration data to connect to the Namada node and to the database. We also need the `checksums.json` file from the Namada node. It maps the hash code to the transaction type and is needed for deserializing transactions in the indexer and in the server.
 
 Launch the containers:
 ```
