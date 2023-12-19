@@ -1,20 +1,23 @@
 use crate::{config::DatabaseConfig, error::Error, utils};
 
-use borsh::de::BorshDeserialize;
-
-use namada::proto;
-use namada::types::transaction::governance::VoteProposalData;
-use namada::types::{
-    address::Address,
-    eth_bridge_pool::PendingTransfer,
-    key::common::PublicKey,
-    token,
-    transaction::{
-        self,
-        account::{InitAccount, UpdateAccount},
-        pgf::UpdateStewardCommission,
-        TxType,
+use namada_sdk::core::types::key::common::PublicKey;
+use namada_sdk::{
+    borsh::BorshDeserialize,
+    core::types::{
+        address::Address,
+        eth_bridge_pool::PendingTransfer,
+        // key::PublicKey,
+        token,
+        transaction::{
+            account::{InitAccount, UpdateAccount},
+            governance::VoteProposalData,
+            pgf::UpdateStewardCommission,
+            pos::{Bond, Unbond},
+            TxType,
+        },
     },
+    proto,
+    tendermint_proto::types::EvidenceList as RawEvidenceList,
 };
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::Row as TRow;
@@ -25,7 +28,6 @@ use std::time::Duration;
 use tendermint::block::Block;
 use tendermint_proto::types::evidence::Sum;
 use tendermint_proto::types::CommitSig;
-use tendermint_proto::types::EvidenceList as RawEvidenceList;
 use tendermint_rpc::endpoint::block_results;
 use tracing::{info, instrument, trace};
 
@@ -704,7 +706,7 @@ impl Database {
                         query.execute(&mut *sqlx_tx).await?;
                     }
                     "tx_bond" => {
-                        let bond = transaction::pos::Bond::try_from_slice(&data[..])?;
+                        let bond = Bond::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
                             "INSERT INTO {}.tx_bond(
@@ -729,7 +731,7 @@ impl Database {
                         query.execute(&mut *sqlx_tx).await?;
                     }
                     "tx_unbond" => {
-                        let unbond = transaction::pos::Unbond::try_from_slice(&data[..])?;
+                        let unbond = Unbond::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
                             "INSERT INTO {}.tx_bond(

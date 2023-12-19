@@ -9,12 +9,10 @@ use tokio::task::JoinError;
 
 use config::ConfigError;
 use opentelemetry_api::metrics::MetricsError;
-use tendermint::error::Error as TError;
+use tendermint::Error as TError;
+use tendermint_rpc::endpoint::block_results;
 use tendermint_rpc::Error as TRpcError;
 use tokio::sync::mpsc::error::SendError;
-// use tendermint_config::Error as TCError;
-// use tokio_postgres::error::Error as DbError;
-use tendermint_rpc::endpoint::block_results;
 
 #[derive(Debug, ThisError)]
 pub enum Error {
