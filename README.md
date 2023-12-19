@@ -8,25 +8,27 @@ The project is composed of 2 entities : the `indexer` and the `server`. They are
 
 ![Namadexer graph](./docs/assets/namadexer.jpg)
 
-- the `indexer`: it connects to the Namada node through rpc and collect the blocks and transactions. Then it stores them in the postgres database. The indexer doesn't know about the server and can be started independently.
+- the `indexer`: This component establishes a connection to the Namada node via RPC and collects blocks and transactions. It then stores this data in a PostgreSQL database. The indexer operates independently of the server and can be initiated on its own.
 
-- the `server`: it is a JSON server that allows querying block and transaction using unique identifier. Other useful endpoints like `/blocks/latest` can be found too. A list of all the endpoints and their description can be find in the documenttaion.
+- the `server`: This is a JSON-based server that facilitates querying of blocks and transactions using unique identifiers. It also provides additional useful endpoints, such as  `/blocks/latest`.  A comprehensive list of all endpoints, along with their descriptions, is available in the documentation.
 
-Those services requires a connection to a [postgres](https://www.postgresql.org/) database. Support for [OpenTelemetry](https://opentelemetry.io/) was also added.
+These services require a connection to a [postgres](https://www.postgresql.org/) database. Support for [OpenTelemetry](https://opentelemetry.io/) has also been added.
+
 
 ## Documentation
 
 You can find more information about the indexer in the [`./docs`](./docs/) folder.
 
-## Dev
+## Development
 
-You will need access to a namada node and inform its tendermint rpc host and port in the `Settings.toml` file. You can use the `Settings.example.toml` as a template.
+You will need access to a namada node and specify its tendermint rpc host and port in the `Settings.toml` file. You can use the `Settings.example.toml` as a template.
 
 ### Dev dependencies
 
-You will need rust installed and a running node of namada accessible locally.
+To proceed, you must have Rust installed and a Namada node operational and accessible locally.
 
-It will install teh right version of protoc (at least 3.12) in this repo to avoid conflict with other installed version
+The system will automatically install the appropriate version of protoc (version 3.12 or higher) within this repository. This ensures no conflicts arise with other versions of protoc that may be installed on your system
+
 ```
 $ make install-deps
 ```
