@@ -40,10 +40,9 @@ jobs:
         run: |
           make download-checksum
           protoc --version
-      # NEED NEW TESTNET TO UPDATE VECTOR TESTS
-      # - name: Tests saving blocks
-      #   run: | 
-      #     cargo test save_block -- --test-threads=1
-      # - name: Tests getting blocks
-      #   run: |
-      #     cargo test block_tests
+      - name: Tests saving blocks
+        run: |
+          cargo test save_block -- --test-threads=1
+      - name: Tests getting blocks
+        run: |
+          cargo test block_tests
