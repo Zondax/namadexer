@@ -1,6 +1,6 @@
 // Generate tests vectors blocks
-use namada::tendermint::block::Height;
-use namada::tendermint_rpc::{Client, HttpClient};
+use namada_sdk::tendermint::block::Height;
+use namada_sdk::tendermint_rpc::{Client, HttpClient};
 use std::fs::File;
 use std::io::Write;
 
@@ -31,7 +31,7 @@ async fn main() {
 
         current_height += 1;
 
-        if current_height > 300 {
+        if current_height > 100 {
             break;
         }
 
