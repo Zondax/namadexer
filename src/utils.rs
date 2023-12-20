@@ -1,6 +1,10 @@
 use namada_sdk::core::types::transaction::TxType;
 use std::collections::HashMap;
-use std::fs;
+use std::{env, fs};
+
+const CHECKSUMS_FILE_PATH_ENV: &str = "CHECKSUMS_FILE_PATH";
+const CHECKSUMS_REMOTE_URL_ENV: &str = "CHECKSUMS_REMOTE_URL";
+const CHECKSUMS_DEFAULT_PATH: &str = "checksums.json";
 
 pub fn tx_type_name(tx_type: &TxType) -> String {
     match tx_type {
@@ -12,7 +16,15 @@ pub fn tx_type_name(tx_type: &TxType) -> String {
 }
 
 pub fn load_checksums() -> Result<HashMap<String, String>, crate::Error> {
-    let checksums = fs::read_to_string("./checksums.json")?;
+    let checksums_file_path = env::var(CHECKSUMS_FILE_PATH_ENV);
+    let checksums_remote_url = env::var(CHECKSUMS_REMOTE_URL_ENV);
+
+    let checksums = match (checksums_file_path, checksums_remote_url) {
+        (Ok(path), _) => fs::read_to_string(path)?,
+        (_, Ok(url)) => ureq::get(&url).call().unwrap().into_string().unwrap(),
+        _ => fs::read_to_string(CHECKSUMS_DEFAULT_PATH)?,
+    };
+
     let json: serde_json::Value = serde_json::from_str(&checksums)?;
     let obj = json.as_object().ok_or(crate::Error::InvalidChecksum)?;
 
