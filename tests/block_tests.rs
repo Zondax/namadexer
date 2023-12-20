@@ -74,7 +74,7 @@ mod block_tests {
         let address = format!("http://{}:{}", addr.ip(), addr.port());
         let hc = httpc_test::new_client(address).expect("Server not running?");
         let response = hc
-            .do_get("/block/hash/2b719da000dd1caef4d401dbf9908610ce9059d052654887886957d8d1256d1a")
+            .do_get("/block/hash/c551125e8a1821d39ce933cd8860702fa8102b5e17030f531423a7113d377cde")
             .await
             .expect("Block does not exist");
 
@@ -82,6 +82,6 @@ mod block_tests {
 
         let header = response.json_body_as::<BlockInfo>().unwrap();
 
-        assert_eq!(header.tx_hashes.len(), 197)
+        assert_eq!(header.tx_hashes.len(), 1)
     }
 }
