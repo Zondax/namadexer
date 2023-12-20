@@ -42,7 +42,7 @@ jobs:
           protoc --version
       - name: Tests saving blocks
         run: |
-          cargo test save_block -- --test-threads=1
+          cargo test --test save_block
       - name: Tests getting blocks
         run: |
-          cargo test block_tests
+          cargo test --test block_tests
