@@ -31,7 +31,7 @@ async fn main() {
 
         current_height += 1;
 
-        if current_height > 100 {
+        if current_height > 300 {
             break;
         }
 
