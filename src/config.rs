@@ -1,4 +1,5 @@
 use crate::error::Error;
+use clap::{ArgAction, Parser};
 use config::{Config, File};
 use serde::Deserialize;
 use std::{env, net::SocketAddr};
@@ -117,6 +118,42 @@ impl Default for DatabaseConfig {
     }
 }
 
+#[derive(Debug, Deserialize, clap::Parser)]
+pub struct CliSettings {
+    #[clap(long, env, default_value = "")]
+    pub log_level: String,
+    #[clap(long, env, default_value = DEFAULT_NETWORK)]
+    pub network: String,
+    #[clap(long, env, default_value = SERVER_ADDR)]
+    pub server_serve_at: String,
+    #[clap(long, env, default_value_t = SERVER_PORT)]
+    pub server_port: u16,
+    #[clap(long, env, default_value = "localhost")]
+    pub database_host: String,
+    #[clap(long, env, default_value = "postgres")]
+    pub database_user: String,
+    #[clap(long, env, default_value = "wow")]
+    pub database_password: String,
+    #[clap(long, env, default_value = "blockchain")]
+    pub database_dbname: String,
+    #[clap(long, env)]
+    pub database_connection_timeout: Option<u64>,
+    #[clap(long, env, default_value = TENDERMINT_ADDR)]
+    pub indexer_tendermint_addr: String,
+    #[clap(long, env, default_value_t = INDEXER_PORT)]
+    pub indexer_port: u16,
+    #[clap(long, env, action=ArgAction::SetFalse)]
+    pub jaeger_enable: bool,
+    #[clap(long, env, default_value = JAEGER_HOST)]
+    pub jaeger_host: String,
+    #[clap(long, env, default_value_t = JAEGER_PORT)]
+    pub jaeger_port: u16,
+    #[clap(long, env, default_value = PROMETHEUS_HOST)]
+    pub prometheus_host: String,
+    #[clap(long, env, default_value_t = PROMETHEUS_PORT)]
+    pub prometheus_port: u16,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     pub log_level: String,
@@ -138,6 +175,39 @@ impl Default for Settings {
             indexer: Default::default(),
             jaeger: Default::default(),
             prometheus: Default::default(),
+        }
+    }
+}
+
+impl From<CliSettings> for Settings {
+    fn from(value: CliSettings) -> Self {
+        Self {
+            log_level: value.log_level,
+            network: value.network,
+            database: DatabaseConfig {
+                host: value.database_host,
+                user: value.database_user,
+                password: value.database_password,
+                dbname: value.database_dbname,
+                connection_timeout: value.database_connection_timeout,
+            },
+            server: ServerConfig {
+                serve_at: value.server_serve_at,
+                port: value.server_port,
+            },
+            indexer: IndexerConfig {
+                tendermint_addr: value.indexer_tendermint_addr,
+                port: value.indexer_port,
+            },
+            jaeger: JaegerConfig {
+                enable: value.jaeger_enable,
+                host: value.jaeger_host,
+                port: value.jaeger_port,
+            },
+            prometheus: PrometheusConfig {
+                host: value.prometheus_host,
+                port: value.prometheus_port,
+            },
         }
     }
 }
@@ -164,7 +234,10 @@ impl Settings {
             return Ok(settings);
         }
 
-        Ok(Self::default())
+        let cli_settings = CliSettings::parse();
+        let settings = Settings::from(cli_settings);
+
+        Ok(settings)
     }
 
     pub fn server_config(&self) -> &ServerConfig {
