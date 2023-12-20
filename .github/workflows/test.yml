@@ -29,12 +29,15 @@ jobs:
           # Maps tcp port 5432 on service container to the host
           - 5432:5432
     steps:
+      - name: Install dependencies
+        run:  |
+          sudo apt-get update
+          sudo apt-get install -y curl protobuf-compiler build-essential pkg-config libssl-dev
+
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler build-essential pkg-config libssl-dev
           make download-checksum
           protoc --version
       # NEED NEW TESTNET TO UPDATE VECTOR TESTS

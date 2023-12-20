@@ -14,6 +14,11 @@ jobs:
     name: Build
     runs-on: zondax-runners
     steps:
+      - name: Install dependencies
+        run:  |
+          sudo apt-get update
+          sudo apt-get install -y curl protobuf-compiler build-essential
+
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -21,8 +26,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: build
         run:  |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler build-essential
           protoc --version
           cargo build --all-features
 
@@ -30,6 +33,11 @@ jobs:
     name: Rustfmt
     runs-on: zondax-runners
     steps:
+      - name: Install dependencies
+        run:  |
+          sudo apt-get update
+          sudo apt-get install -y curl protobuf-compiler build-essential
+
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -44,13 +52,16 @@ jobs:
     name: Clippy
     runs-on: zondax-runners
     steps:
+      - name: Install dependencies
+        run:  |
+          sudo apt-get update
+          sudo apt-get install -y curl protobuf-compiler build-essential
+
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - name: Linting
         run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler build-essential
           protoc --version
           cargo clippy --all-features -- -D warnings
