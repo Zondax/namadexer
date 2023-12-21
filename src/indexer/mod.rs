@@ -116,10 +116,7 @@ async fn get_block_results(
     let response = client.block_results(block_height).await;
 
     match response {
-        Ok(r) => {
-            dbg!(&r);
-            Ok(r)
-        }
+        Ok(r) => Ok(r),
         Err(err) => {
             match &err.0 {
                 tendermint_rpc::error::ErrorDetail::Response(e) => {
@@ -199,9 +196,8 @@ pub async fn start_indexing(db: Database, config: &IndexerConfig) -> Result<(), 
      ********************/
 
     // Connect to a RPC
-    let fmt_addr = format!("{}:{}", config.tendermint_addr, config.port);
-    info!("Connecting to {}", fmt_addr);
-    let client = HttpClient::new(fmt_addr.as_str())?;
+    info!("Connecting to {}", config.tendermint_addr);
+    let client = HttpClient::new(config.tendermint_addr.as_str())?;
 
     /********************
      *

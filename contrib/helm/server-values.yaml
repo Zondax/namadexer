@@ -83,7 +83,6 @@ configMap:
         
         [indexer]
         tendermint_addr = "tendermint namada node url"
-        port = 26657
         
         [jaeger]
         enable = false
