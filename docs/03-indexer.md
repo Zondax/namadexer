@@ -20,8 +20,7 @@ dbname = "blockchain"
 
 # The tendermint RPC address and port to access the Namada node
 [indexer]
-tendermint_addr = "http://127.0.0.1"
-port = 26657
+tendermint_addr = "http://127.0.0.1:26657"
 ```
 
 In option it is possible to activate the `prometheus` feature or `jeager` for a better view of the indexer performances. See [telemetry](./telemetry.md)

@@ -10,8 +10,7 @@ const ENV_VAR_NAME: &str = "INDEXER_CONFIG_PATH";
 pub const SERVER_ADDR: &str = "127.0.0.1";
 pub const SERVER_PORT: u16 = 30303;
 
-pub const TENDERMINT_ADDR: &str = "http://127.0.0.1";
-pub const INDEXER_PORT: u16 = 26657;
+pub const TENDERMINT_ADDR: &str = "http://127.0.0.1:26657";
 
 pub const JAEGER_HOST: &str = "localhost";
 pub const JAEGER_PORT: u16 = 6831;
@@ -19,12 +18,11 @@ pub const JAEGER_PORT: u16 = 6831;
 pub const PROMETHEUS_HOST: &str = "localhost";
 pub const PROMETHEUS_PORT: u16 = 9000;
 
-pub const DEFAULT_NETWORK: &str = "public-testnet-14";
+pub const DEFAULT_NETWORK: &str = "public-testnet-15";
 
 #[derive(Debug, Deserialize)]
 pub struct IndexerConfig {
-    pub tendermint_addr: String,
-    pub port: u16,
+    pub tendermint_addr: String
 }
 
 #[derive(Debug, Deserialize)]
@@ -85,7 +83,6 @@ impl Default for IndexerConfig {
     fn default() -> Self {
         Self {
             tendermint_addr: TENDERMINT_ADDR.to_owned(),
-            port: INDEXER_PORT,
         }
     }
 }
@@ -140,8 +137,6 @@ pub struct CliSettings {
     pub database_connection_timeout: Option<u64>,
     #[clap(long, env, default_value = TENDERMINT_ADDR)]
     pub indexer_tendermint_addr: String,
-    #[clap(long, env, default_value_t = INDEXER_PORT)]
-    pub indexer_port: u16,
     #[clap(long, env, action=ArgAction::SetFalse)]
     pub jaeger_enable: bool,
     #[clap(long, env, default_value = JAEGER_HOST)]
@@ -197,7 +192,6 @@ impl From<CliSettings> for Settings {
             },
             indexer: IndexerConfig {
                 tendermint_addr: value.indexer_tendermint_addr,
-                port: value.indexer_port,
             },
             jaeger: JaegerConfig {
                 enable: value.jaeger_enable,
