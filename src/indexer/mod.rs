@@ -117,7 +117,6 @@ async fn get_block_results(
 
     match response {
         Ok(r) => {
-            dbg!(&r);
             Ok(r)
         }
         Err(err) => {
