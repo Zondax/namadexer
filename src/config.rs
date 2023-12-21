@@ -22,7 +22,7 @@ pub const DEFAULT_NETWORK: &str = "public-testnet-15";
 
 #[derive(Debug, Deserialize)]
 pub struct IndexerConfig {
-    pub tendermint_addr: String
+    pub tendermint_addr: String,
 }
 
 #[derive(Debug, Deserialize)]

@@ -116,9 +116,7 @@ async fn get_block_results(
     let response = client.block_results(block_height).await;
 
     match response {
-        Ok(r) => {
-            Ok(r)
-        }
+        Ok(r) => Ok(r),
         Err(err) => {
             match &err.0 {
                 tendermint_rpc::error::ErrorDetail::Response(e) => {
