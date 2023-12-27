@@ -2,6 +2,7 @@ mod config;
 pub mod database;
 mod error;
 mod indexer;
+pub(crate) mod queries;
 pub mod server;
 pub mod tables;
 mod telemetry;

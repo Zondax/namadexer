@@ -21,7 +21,10 @@ pub fn load_checksums() -> Result<HashMap<String, String>, crate::Error> {
 
     let checksums = match (checksums_file_path, checksums_remote_url) {
         (Ok(path), _) => fs::read_to_string(path)?,
-        (_, Ok(url)) => ureq::get(&url).call().unwrap().into_string().unwrap(),
+        (_, Ok(url)) => ureq::get(&url)
+            .call()
+            .map_err(|e| crate::Error::Generic(Box::new(e)))?
+            .into_string()?,
         _ => fs::read_to_string(CHECKSUMS_DEFAULT_PATH)?,
     };
 

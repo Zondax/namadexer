@@ -1,3 +1,4 @@
+use crate::queries::insert_block_query;
 use crate::{config::DatabaseConfig, error::Error, utils};
 
 use namada_sdk::core::types::key::common::PublicKey;
@@ -170,105 +171,81 @@ impl Database {
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
     ) -> Result<(), Error> {
-        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-            "INSERT INTO {}.blocks(
-                block_id,
-                header_version_app,
-                header_version_block,
-                header_chain_id,
-                header_height,
-                header_time,
-                header_last_block_id_hash,
-                header_last_block_id_parts_header_total,
-                header_last_block_id_parts_header_hash,
-                header_last_commit_hash,
-                header_data_hash,
-                header_validators_hash,
-                header_next_validators_hash,
-                header_consensus_hash,
-                header_app_hash,
-                header_last_results_hash,
-                header_evidence_hash,
-                header_proposer_address,
-                commit_height,
-                commit_round,
-                commit_block_id_hash,
-                commit_block_id_parts_header_total,
-                commit_block_id_parts_header_hash
-            )",
-            network
-        ));
-        let block_id = block.header.hash().as_bytes().to_vec();
+        // let mut query_builder: QueryBuilder<_> = QueryBuilder::new(insert_block_query(network));
 
-        let query_block = query_builder
-            .push_values(std::iter::once(0), |mut b, _| {
-                b.push_bind(block_id.clone())
-                    .push_bind(block.header.version.app as i32)
-                    .push_bind(block.header.version.block as i32)
-                    .push_bind(block.header.chain_id.as_str())
-                    .push_bind(block.header.height.value() as i32)
-                    .push_bind(block.header.time.to_rfc3339())
-                    .push_bind(
-                        block
-                            .header
-                            .last_block_id
-                            .map(|id| id.hash.as_bytes().to_vec()),
-                    )
-                    .push_bind(
-                        block
-                            .header
-                            .last_block_id
-                            .map(|id| id.part_set_header.total as i32),
-                    )
-                    .push_bind(
-                        block
-                            .header
-                            .last_block_id
-                            .map(|id| id.part_set_header.hash.as_bytes().to_vec()),
-                    )
-                    .push_bind(
-                        block
-                            .header
-                            .last_commit_hash
-                            .map(|lch| lch.as_bytes().to_vec()),
-                    )
-                    .push_bind(block.header.data_hash.map(|dh| dh.as_bytes().to_vec()))
-                    .push_bind(block.header.validators_hash.as_bytes().to_vec())
-                    .push_bind(block.header.next_validators_hash.as_bytes().to_vec())
-                    .push_bind(block.header.consensus_hash.as_bytes().to_vec())
-                    .push_bind(block.header.app_hash.to_string())
-                    .push_bind(
-                        block
-                            .header
-                            .last_results_hash
-                            .map(|lrh| lrh.as_bytes().to_vec()),
-                    )
-                    .push_bind(block.header.evidence_hash.map(|eh| eh.as_bytes().to_vec()))
-                    .push_bind(block.header.proposer_address.to_string())
-                    .push_bind(block.last_commit.as_ref().map(|c| c.height.value() as i32))
-                    .push_bind(block.last_commit.as_ref().map(|c| c.round.value() as i32))
-                    .push_bind(
-                        block
-                            .last_commit
-                            .as_ref()
-                            .map(|c| c.block_id.hash.as_bytes().to_vec()),
-                    )
-                    .push_bind(
-                        block
-                            .last_commit
-                            .as_ref()
-                            .map(|c| c.block_id.part_set_header.total as i32),
-                    )
-                    .push_bind(
-                        block
-                            .last_commit
-                            .as_ref()
-                            .map(|c| c.block_id.part_set_header.hash.as_bytes().to_vec()),
-                    );
-            })
-            .build();
+        let block_id = block.header.hash();
+        let block_id = block_id.as_bytes();
 
-        query_block.execute(&mut *sqlx_tx).await?;
+        // use persistent query for database to optimize it.
+        let query_str = insert_block_query(network);
+        let query = sqlx::query(&query_str).persistent(true);
+
+        let query = query
+            .bind(block_id)
+            .bind(block.header.version.app as i32)
+            .bind(block.header.version.block as i32)
+            .bind(block.header.chain_id.as_str())
+            .bind(block.header.height.value() as i32)
+            .bind(block.header.time.to_rfc3339())
+            .bind(
+                block
+                    .header
+                    .last_block_id
+                    .map(|id| id.hash.as_bytes().to_vec()),
+            )
+            .bind(
+                block
+                    .header
+                    .last_block_id
+                    .map(|id| id.part_set_header.total as i32),
+            )
+            .bind(
+                block
+                    .header
+                    .last_block_id
+                    .map(|id| id.part_set_header.hash.as_bytes().to_vec()),
+            )
+            .bind(
+                block
+                    .header
+                    .last_commit_hash
+                    .map(|lch| lch.as_bytes().to_vec()),
+            )
+            .bind(block.header.data_hash.map(|dh| dh.as_bytes().to_vec()))
+            .bind(block.header.validators_hash.as_bytes().to_vec())
+            .bind(block.header.next_validators_hash.as_bytes().to_vec())
+            .bind(block.header.consensus_hash.as_bytes().to_vec())
+            .bind(block.header.app_hash.to_string())
+            .bind(
+                block
+                    .header
+                    .last_results_hash
+                    .map(|lrh| lrh.as_bytes().to_vec()),
+            )
+            .bind(block.header.evidence_hash.map(|eh| eh.as_bytes().to_vec()))
+            .bind(block.header.proposer_address.to_string())
+            .bind(block.last_commit.as_ref().map(|c| c.height.value() as i32))
+            .bind(block.last_commit.as_ref().map(|c| c.round.value() as i32))
+            .bind(
+                block
+                    .last_commit
+                    .as_ref()
+                    .map(|c| c.block_id.hash.as_bytes().to_vec()),
+            )
+            .bind(
+                block
+                    .last_commit
+                    .as_ref()
+                    .map(|c| c.block_id.part_set_header.total as i32),
+            )
+            .bind(
+                block
+                    .last_commit
+                    .as_ref()
+                    .map(|c| c.block_id.part_set_header.hash.as_bytes().to_vec()),
+            );
+
+        query.execute(&mut *sqlx_tx).await?;
 
         let commit_signatures = block.last_commit.as_ref().map(|c| &c.signatures);
 
@@ -276,14 +253,14 @@ impl Database {
         if let Some(cs) = commit_signatures {
             let signatures: Vec<CommitSig> =
                 cs.iter().map(|s| CommitSig::from(s.to_owned())).collect();
-            Self::save_commit_sinatures(&block_id, &signatures, sqlx_tx, network).await?;
+            Self::save_commit_sinatures(block_id, &signatures, sqlx_tx, network).await?;
         };
 
         let evidence_list = RawEvidenceList::from(block.evidence().clone());
-        Self::save_evidences(evidence_list, &block_id, sqlx_tx, network).await?;
+        Self::save_evidences(evidence_list, block_id, sqlx_tx, network).await?;
         Self::save_transactions(
             block.data.as_ref(),
-            &block_id,
+            block_id,
             block.header.height.value(),
             block_results,
             checksums_map,
