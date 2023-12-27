@@ -122,7 +122,6 @@ impl TxInfo {
     pub fn decode_tx(&mut self, checksums: &HashMap<String, String>) -> Result<(), Error> {
         if self.is_decrypted() {
             let Some(type_tx) = checksums.get(&self.code()) else {
-                // Error as transaction is unknown 
                 return Err(Error::InvalidTxData);
             };
 
