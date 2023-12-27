@@ -47,7 +47,7 @@ fn server_routes(state: ServerState) -> Router<()> {
         .route("/block/last", get(get_last_block))
         .route("/tx/:tx_hash", get(get_tx_by_hash))
         .route("/tx/vote_proposal/:proposal_id", get(get_vote_proposal))
-        .route("/shielded", get(get_shielded_tx))
+        .route("/tx/shielded", get(get_shielded_tx))
         .route("/account/updates/:account_id", get(get_account_updates))
         .route(
             "/validator/:validator_address/uptime",
