@@ -15,7 +15,7 @@ pub async fn get_tx_by_hash(
     State(state): State<ServerState>,
     Path(hash): Path<String>,
 ) -> Result<Json<Option<TxInfo>>, Error> {
-    info!("calling /tx/:tx_hash");
+    info!("calling /tx/:tx_hash{}", hash);
 
     let hash = hex::decode(hash)?;
 
