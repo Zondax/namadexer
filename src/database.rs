@@ -912,15 +912,18 @@ impl Database {
                 }
             }
 
-            let mut fee_amount_per_gas_unit = String::new();
-            let mut fee_token = String::new();
-            let mut gas_limit_multiplier = 0;
+            // values only set if transaction type is Wrapper
+            let mut fee_amount_per_gas_unit: Option<String> = None;
+            let mut fee_token: Option<String> = None;
+            let mut gas_limit_multiplier: Option<i64> = None;
             if let TxType::Wrapper(txw) = tx.header().tx_type {
-                fee_amount_per_gas_unit = txw.fee.amount_per_gas_unit.raw_amount().to_string();
-                fee_token = txw.fee.token.to_string();
+                fee_amount_per_gas_unit =
+                    Some(txw.fee.amount_per_gas_unit.raw_amount().to_string());
+                fee_token = Some(txw.fee.token.to_string());
+                let multiplier: u64 = txw.gas_limit.into();
                 // WARNING! converting into i64 might ended up changing the value but there is little
                 // chance that he goes higher than i64 max value
-                gas_limit_multiplier = txw.gas_limit.into();
+                gas_limit_multiplier = Some(multiplier as i64);
             }
 
             tx_values.push((
@@ -965,7 +968,7 @@ impl Database {
                         .push_bind(wrapper_id)
                         .push_bind(fee_amount_per_gas_unit)
                         .push_bind(fee_token)
-                        .push_bind(fee_gas_limit_multiplier as i64)
+                        .push_bind(fee_gas_limit_multiplier)
                         .push_bind(code)
                         .push_bind(data)
                         .push_bind(return_code);
