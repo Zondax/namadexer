@@ -1,9 +1,7 @@
 use namadexer::{create_server, Database, Error as NError, ServerConfig, Settings};
-use sqlx::postgres::PgPoolOptions;
 use sqlx::query;
 use sqlx::PgPool;
 use std::net::SocketAddr;
-use std::time::Duration;
 
 pub const TESTING_DB_NAME: &str = "testingdb";
 const NETWORK: &str = "testnet";

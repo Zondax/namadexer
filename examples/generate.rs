@@ -4,12 +4,15 @@ use namada_sdk::tendermint_rpc::{Client, HttpClient};
 use std::fs::File;
 use std::io::Write;
 
+const URL: &str = "http://194.163.180.253:26657";
+const CURRENT_HEIGHT: u32 = 1;
+
 #[tokio::main]
 async fn main() {
-    let client = HttpClient::new("http://194.163.180.253:26657").unwrap();
-    let mut current_height: u32 = 1;
-    let mut f1 = File::create("./blocks_vector.json").unwrap();
-    let mut f2 = File::create("./block_results_vector.json").unwrap();
+    let client = HttpClient::new(URL).unwrap();
+    let mut current_height = CURRENT_HEIGHT;
+    let mut f1 = File::create("./tests/blocks_vector.json").unwrap();
+    let mut f2 = File::create("./tests/block_results_vector.json").unwrap();
 
     write!(f1, "[").unwrap();
     write!(f2, "[").unwrap();
@@ -31,7 +34,7 @@ async fn main() {
 
         current_height += 1;
 
-        if current_height > 300 {
+        if current_height > CURRENT_HEIGHT + 300 {
             break;
         }
 
