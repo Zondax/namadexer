@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 use std::fs;
 use tendermint::block::Block;
+use tendermint_rpc::endpoint::block_results;
 
 const NETWORK: &str = "testnet";
 
@@ -42,7 +43,8 @@ pub async fn destroy_bench_database(pg_pool: &PgPool, name: &str) {
 }
 
 pub fn load_blocks() -> Vec<Block> {
-    let data = fs::read_to_string("./tests/blocks_vector.json").unwrap();
+    let data = fs::read_to_string("./tests/blocks_vector.json")
+        .expect("blocks_vector.json does not exists?");
     serde_json::from_str(&data).unwrap()
 }
 
@@ -58,9 +60,17 @@ pub async fn helper_db() -> Database {
 pub async fn save_blocks(
     db: &Database,
     blocks: impl Iterator<Item = &mut Block>,
+    results: impl Iterator<Item = &block_results::Response>,
     checksums: &HashMap<String, String>,
 ) {
-    for block in blocks {
-        db.save_block(block, checksums).await.unwrap();
+    for (block, result) in blocks.zip(results) {
+        db.save_block(block, result, checksums).await.unwrap();
     }
+}
+
+pub fn load_block_results() -> Vec<block_results::Response> {
+    let data = fs::read_to_string("./tests/block_results_vector.json")
+        .expect("blocks_result.json does not exists?");
+    let block_results: Vec<block_results::Response> = serde_json::from_str(&data).unwrap();
+    block_results
 }

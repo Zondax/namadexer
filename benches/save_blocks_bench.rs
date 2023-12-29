@@ -32,6 +32,7 @@ fn save_blocks_benchmark(c: &mut Criterion) {
 
     // load testing data
     let mut blocks = utils::load_blocks();
+    let results = utils::load_block_results();
     let checksums_map = load_checksums().unwrap();
 
     // start benchmarking here
@@ -46,7 +47,7 @@ fn save_blocks_benchmark(c: &mut Criterion) {
                     b
                 });
 
-                utils::save_blocks(&save_blocks_db, iter, &checksums_map).await
+                utils::save_blocks(&save_blocks_db, iter, results.iter(), &checksums_map).await
             });
         });
     });
