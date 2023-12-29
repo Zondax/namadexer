@@ -145,7 +145,7 @@ async fn get_block_results(
                 }
             }
 
-            return Err(Error::TendermintRpcError(err));
+            Err(Error::TendermintRpcError(err))
         }
     }
 }

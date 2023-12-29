@@ -24,6 +24,7 @@ use prost::Message;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tracing::{error, info};
 
 use super::utils::serialize_optional_hex;
 
@@ -33,7 +34,7 @@ use sqlx::Row as TRow;
 // represents the number of columns
 // that db must contains in order to deserialized
 // transactions
-const NUM_TX_COLUMNS: usize = 9;
+const NUM_TX_COLUMNS: usize = 10;
 
 // namada::ibc::applications::transfer::msgs::transfer::TYPE_URL has been made private and can't be access anymore
 const MSG_TRANSFER_TYPE_URL: &str = "/ibc.applications.transfer.v1.MsgTransfer";
@@ -84,10 +85,10 @@ pub struct TxInfo {
     #[serde(with = "hex::serde")]
     wrapper_id: Vec<u8>,
     /// The transaction fee only for tx_type Wrapper (otherwise empty)
-    fee_amount_per_gas_unit: String,
-    fee_token: String,
+    fee_amount_per_gas_unit: Option<String>,
+    fee_token: Option<String>,
     /// Gas limit (only for Wrapper tx)
-    gas_limit_multiplier: i64,
+    gas_limit_multiplier: Option<i64>,
     /// The transaction code. Match what is in the checksum.js
     #[serde(serialize_with = "serialize_optional_hex")]
     code: Option<Vec<u8>>,
@@ -120,9 +121,9 @@ impl TxInfo {
 
     pub fn decode_tx(&mut self, checksums: &HashMap<String, String>) -> Result<(), Error> {
         if self.is_decrypted() {
-            // decode tx and update variable
-            let unknown_type = "unknown".to_string();
-            let type_tx = checksums.get(&self.code()).unwrap_or(&unknown_type);
+            let Some(type_tx) = checksums.get(&self.code()) else {
+                return Err(Error::InvalidTxData);
+            };
 
             let decoded = match type_tx.as_str() {
                 "tx_transfer" => {
@@ -159,7 +160,6 @@ impl TxInfo {
                 "tx_bridge_pool" => {
                     PendingTransfer::try_from_slice(&self.data()).map(TxDecoded::EthPoolBridge)?
                 }
-
                 _ => {
                     return Err(Error::InvalidTxData);
                 }
@@ -188,7 +188,10 @@ impl TryFrom<Row> for TxInfo {
     type Error = Error;
 
     fn try_from(row: Row) -> Result<Self, Self::Error> {
+        info!("TxInfo::try_from");
+
         if row.len() != NUM_TX_COLUMNS {
+            error!("Wrong number of colums in row");
             return Err(Error::InvalidTxData);
         }
 
