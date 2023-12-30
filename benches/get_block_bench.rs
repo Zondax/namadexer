@@ -52,9 +52,10 @@ async fn prepare_database() -> Database {
 
     // populate bench database with blocks
     let mut blocks = utils::load_blocks();
+    let results = utils::load_block_results();
     let checksums = load_checksums().unwrap();
 
-    utils::save_blocks(&db, blocks.iter_mut(), &checksums).await;
+    utils::save_blocks(&db, blocks.iter_mut(), results.iter(), &checksums).await;
 
     db
 }

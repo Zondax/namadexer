@@ -60,7 +60,7 @@ mod block_tests {
         let height = header.header.height.value();
 
         // our testing database contains 300 blocks
-        assert_eq!(300, height);
+        assert_eq!(301, height);
     }
 
     #[tokio::test]
@@ -73,8 +73,9 @@ mod block_tests {
 
         let address = format!("http://{}:{}", addr.ip(), addr.port());
         let hc = httpc_test::new_client(address).expect("Server not running?");
+        // hash bellow is the last block(301)
         let response = hc
-            .do_get("/block/hash/c551125e8a1821d39ce933cd8860702fa8102b5e17030f531423a7113d377cde")
+            .do_get("/block/hash/2b1f263011cba260b415518c7ee0f7531ff8134afd728997c459c6392d1e3a42")
             .await
             .expect("Block does not exist");
 
@@ -82,6 +83,6 @@ mod block_tests {
 
         let header = response.json_body_as::<BlockInfo>().unwrap();
 
-        assert_eq!(header.tx_hashes.len(), 1)
+        assert_eq!(header.tx_hashes.len(), 4)
     }
 }
