@@ -541,7 +541,7 @@ impl Database {
     /// Save all the transactions in txs, it is up to the caller to
     /// call sqlx_tx.commit().await?; for the changes to take place in
     /// database.
-    #[instrument(skip(txs, block_id, sqlx_tx, checksums_map, block_height, network))]
+    #[instrument(skip(block_id, sqlx_tx, checksums_map, block_height, network))]
     async fn save_transactions<'a>(
         txs: &Vec<Vec<u8>>,
         block_id: &[u8],
@@ -1025,16 +1025,6 @@ impl Database {
 
         query(
             format!(
-                "ALTER TABLE {0}.tx_transfer ADD CONSTRAINT fk_tx_id FOREIGN KEY (tx_id) REFERENCES {0}.transactions (hash);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        query(
-            format!(
                 "CREATE INDEX x_source_transfer ON {}.tx_transfer (source);",
                 self.network
             )
@@ -1065,27 +1055,7 @@ impl Database {
 
         query(
             format!(
-                "ALTER TABLE {0}.tx_bond ADD CONSTRAINT fk_tx_id FOREIGN KEY (tx_id) REFERENCES {0}.transactions (hash);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        query(
-            format!(
                 "ALTER TABLE {}.tx_bridge_pool ADD CONSTRAINT pk_tx_id_bridge PRIMARY KEY (tx_id);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        query(
-            format!(
-                "ALTER TABLE {0}.tx_bridge_pool ADD CONSTRAINT fk_tx_id FOREIGN KEY (tx_id) REFERENCES {0}.transactions (hash);",
                 self.network
             )
             .as_str(),
