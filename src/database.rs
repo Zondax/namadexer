@@ -541,7 +541,7 @@ impl Database {
     /// Save all the transactions in txs, it is up to the caller to
     /// call sqlx_tx.commit().await?; for the changes to take place in
     /// database.
-    #[instrument(skip(block_id, sqlx_tx, checksums_map, block_height, network))]
+    #[instrument(skip(txs, block_id, sqlx_tx, checksums_map, network))]
     async fn save_transactions<'a>(
         txs: &Vec<Vec<u8>>,
         block_id: &[u8],
