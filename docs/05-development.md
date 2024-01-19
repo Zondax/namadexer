@@ -50,7 +50,7 @@ The `Settings.toml` contains the required configuration data to connect to the N
 
 Launch the containers:
 ```
-$ docker compose -f contrib/docker-compose.yml up --build
+$ docker compose -f contrib/docker-compose.yaml up --build
 ```
 
 ## Monitoring
