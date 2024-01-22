@@ -57,5 +57,5 @@ $ docker compose -f contrib/docker-compose.yml up --build
 
 In addition, prometheus and grafana can be used to collect logs if the feature is activated. The docker compose file can be found under `./contrib/prometheus-compose.yml`.
 
-More info in the [telemetry](./telemetry.md) section.
+More info in the [telemetry](./07-telemetry.md) section.
 
