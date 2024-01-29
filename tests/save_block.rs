@@ -33,7 +33,6 @@ mod save_block {
                 .unwrap();
         }
 
-        // assert!(db.create_indexes().await.is_ok());
         db.create_indexes()
             .await
             .expect("Something went wrong creating database indexes");

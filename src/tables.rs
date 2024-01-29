@@ -203,7 +203,7 @@ pub fn get_create_delegations_table(network: &str) -> String {
     format!(
         "CREATE TABLE IF NOT EXISTS {}.delegations (
         id SERIAL,
-        vote_proposal_id BYTEA REFERENCES {}.vote_proposal(vote_proposal_id),
+        vote_proposal_id BYTEA,
         delegator_id TEXT NOT NULL
     );",
         network, network
