@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-use tracing::{error, instrument, trace};
+use tracing::{instrument, trace};
 
 use sqlx::postgres::PgRow as Row;
 use sqlx::Row as TRow;
@@ -16,10 +16,6 @@ use tendermint::{
 
 use super::{from_hex, serialize_hex};
 use crate::error::Error;
-
-// represents the number of BlockInfo fields
-// that were stored in database.
-const NUM_BLOCK_HEADER_FIELDS: usize = 23;
 
 /// Last commit info in a block
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -114,11 +110,6 @@ impl TryFrom<&Row> for BlockInfo {
 
     #[instrument(level = "trace", skip(row))]
     fn try_from(row: &Row) -> Result<Self, Self::Error> {
-        if row.len() != NUM_BLOCK_HEADER_FIELDS {
-            error!("Invalid block data, empty Row");
-            return Err(Error::InvalidBlockData);
-        }
-
         // block_id
         let block_id: Vec<u8> = row.try_get("block_id")?;
         trace!("parsed block_id {:?}", &block_id);

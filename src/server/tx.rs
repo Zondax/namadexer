@@ -24,17 +24,12 @@ use prost::Message;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{error, info};
+use tracing::info;
 
 use super::utils::serialize_optional_hex;
 
 use sqlx::postgres::PgRow as Row;
 use sqlx::Row as TRow;
-
-// represents the number of columns
-// that db must contains in order to deserialized
-// transactions
-const NUM_TX_COLUMNS: usize = 10;
 
 // namada::ibc::applications::transfer::msgs::transfer::TYPE_URL has been made private and can't be access anymore
 const MSG_TRANSFER_TYPE_URL: &str = "/ibc.applications.transfer.v1.MsgTransfer";
@@ -189,11 +184,6 @@ impl TryFrom<Row> for TxInfo {
 
     fn try_from(row: Row) -> Result<Self, Self::Error> {
         info!("TxInfo::try_from");
-
-        if row.len() != NUM_TX_COLUMNS {
-            error!("Wrong number of colums in row");
-            return Err(Error::InvalidTxData);
-        }
 
         let hash: Vec<u8> = row.try_get("hash")?;
         let block_id: Vec<u8> = row.try_get("block_id")?;
