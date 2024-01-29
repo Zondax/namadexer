@@ -185,7 +185,7 @@ pub fn get_create_vote_proposal_table(network: &str) -> String {
     // a reference for the delegations table.
     format!(
         "CREATE TABLE IF NOT EXISTS {}.vote_proposal (
-        vote_proposal_id BYTEA NOT NULL PRIMARY KEY,
+        vote_proposal_id BYTEA,
         vote BOOL NOT NULL,
         vote_default BOOL NOT NULL,
         voter TEXT NOT NULL,
@@ -203,9 +203,9 @@ pub fn get_create_delegations_table(network: &str) -> String {
     format!(
         "CREATE TABLE IF NOT EXISTS {}.delegations (
         id SERIAL,
-        vote_proposal_id BYTEA REFERENCES {}.vote_proposal(vote_proposal_id),
+        vote_proposal_id BYTEA,
         delegator_id TEXT NOT NULL
     );",
-        network, network
+        network
     )
 }
