@@ -206,6 +206,6 @@ pub fn get_create_delegations_table(network: &str) -> String {
         vote_proposal_id BYTEA,
         delegator_id TEXT NOT NULL
     );",
-        network, network
+        network
     )
 }
