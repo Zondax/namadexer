@@ -1,24 +1,27 @@
 use crate::queries::insert_block_query;
 use crate::{config::DatabaseConfig, error::Error, utils};
 
-use namada_sdk::core::types::key::common::PublicKey;
+use namada_sdk::types::key::common::PublicKey;
 use namada_sdk::{
     borsh::BorshDeserialize,
-    core::types::{
+    types::{
         address::Address,
         eth_bridge_pool::PendingTransfer,
         // key::PublicKey,
         token,
-        transaction::{
-            account::{InitAccount, UpdateAccount},
-            governance::VoteProposalData,
-            pgf::UpdateStewardCommission,
-            pos::{Bond, Unbond},
-            TxType,
-        },
     },
-    proto,
+    account::{InitAccount, UpdateAccount},
+    governance::VoteProposalData,
+    tx::{
+        Tx,
+        data::{
+            pos::{Bond, Unbond},
+            pgf::UpdateStewardCommission,
+            TxType
+        }
+    },
     tendermint_proto::types::EvidenceList as RawEvidenceList,
+
 };
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::Row as TRow;
@@ -595,7 +598,7 @@ impl Database {
 
         let mut i: usize = 0;
         for t in txs.iter() {
-            let tx = proto::Tx::try_from(t.as_slice()).map_err(|_| Error::InvalidTxData)?;
+            let tx = Tx::try_from(t.as_slice()).map_err(|_| Error::InvalidTxData)?;
 
             let mut code = Default::default();
             let mut txid_wrapper: Vec<u8> = vec![];
@@ -791,7 +794,8 @@ impl Database {
                             .push_values(std::iter::once(0), |mut b, _| {
                                 b.push_bind(proposal_id)
                                     .push_bind(tx_data.vote.is_yay())
-                                    .push_bind(tx_data.vote.is_default_vote())
+                                    .push_bind(tx_data.vote.is_nay())
+                                    .push_bind(tx_data.vote.is_abstain())
                                     .push_bind(tx_data.voter.encode())
                                     .push_bind(&hash_id);
                             })
@@ -895,7 +899,7 @@ impl Database {
             let mut gas_limit_multiplier: Option<i64> = None;
             if let TxType::Wrapper(txw) = tx.header().tx_type {
                 fee_amount_per_gas_unit =
-                    Some(txw.fee.amount_per_gas_unit.raw_amount().to_string());
+                    Some(txw.fee.amount_per_gas_unit.amount().to_string());
                 fee_token = Some(txw.fee.token.to_string());
                 let multiplier: u64 = txw.gas_limit.into();
                 // WARNING! converting into i64 might ended up changing the value but there is little

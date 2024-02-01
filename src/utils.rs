@@ -1,4 +1,4 @@
-use namada_sdk::core::types::transaction::TxType;
+use namada_sdk::tx::data::TxType;
 use std::collections::HashMap;
 use std::{env, fs};
 
