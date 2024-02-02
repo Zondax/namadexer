@@ -186,8 +186,7 @@ pub fn get_create_vote_proposal_table(network: &str) -> String {
     format!(
         "CREATE TABLE IF NOT EXISTS {}.vote_proposal (
         vote_proposal_id BYTEA,
-        vote BOOL NOT NULL,
-        vote_default BOOL NOT NULL,
+        vote TEXT NOT NULL,
         voter TEXT NOT NULL,
         tx_id BYTEA NOT NULL
     );",

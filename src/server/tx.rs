@@ -1,25 +1,20 @@
 use crate::error::Error;
-use namada_sdk::core::types::key::common::PublicKey;
-use namada_sdk::core::types::transaction::pos::BecomeValidator;
 use namada_sdk::ibc::apps::transfer::types::msgs::transfer::MsgTransfer;
+use namada_sdk::tx::data::pos::BecomeValidator;
+use namada_sdk::types::key::common::PublicKey;
 use namada_sdk::{
+    account::{InitAccount, UpdateAccount},
     borsh::BorshDeserialize,
-    core::types::{
-        address::Address,
-        eth_bridge_pool::PendingTransfer,
-        transaction::{
-            governance::VoteProposalData,
-            pgf::UpdateStewardCommission,
-            pos::{Bond, Unbond, Withdraw},
-        },
+    governance::VoteProposalData,
+    tx::data::{
+        pgf::UpdateStewardCommission,
+        pos::{Bond, Unbond, Withdraw},
     },
-    core::types::{
-        token,
-        transaction::account::{InitAccount, UpdateAccount},
-    },
+    types::token,
+    types::{address::Address, eth_bridge_pool::PendingTransfer},
 };
 
-use namada_sdk::core::ibc::primitives::proto::Any;
+use namada_sdk::ibc::primitives::proto::Any;
 use prost::Message;
 
 use serde::{Deserialize, Serialize};
