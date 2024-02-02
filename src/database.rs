@@ -1,24 +1,26 @@
 use crate::queries::insert_block_query;
 use crate::{config::DatabaseConfig, error::Error, utils};
 
-use namada_sdk::core::types::key::common::PublicKey;
+use namada_sdk::types::key::common::PublicKey;
 use namada_sdk::{
+    account::{InitAccount, UpdateAccount},
     borsh::BorshDeserialize,
-    core::types::{
-        address::Address,
-        eth_bridge_pool::PendingTransfer,
-        // key::PublicKey,
-        token,
-        transaction::{
-            account::{InitAccount, UpdateAccount},
-            governance::VoteProposalData,
+    governance::VoteProposalData,
+    tendermint_proto::types::EvidenceList as RawEvidenceList,
+    tx::{
+        data::{
             pgf::UpdateStewardCommission,
             pos::{Bond, Unbond},
             TxType,
         },
+        Tx,
     },
-    proto,
-    tendermint_proto::types::EvidenceList as RawEvidenceList,
+    types::{
+        address::Address,
+        eth_bridge_pool::PendingTransfer,
+        // key::PublicKey,
+        token,
+    },
 };
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::Row as TRow;
@@ -595,7 +597,7 @@ impl Database {
 
         let mut i: usize = 0;
         for t in txs.iter() {
-            let tx = proto::Tx::try_from(t.as_slice()).map_err(|_| Error::InvalidTxData)?;
+            let tx = Tx::try_from(t.as_slice()).map_err(|_| Error::InvalidTxData)?;
 
             let mut code = Default::default();
             let mut txid_wrapper: Vec<u8> = vec![];
@@ -790,8 +792,7 @@ impl Database {
                         let query = query_builder
                             .push_values(std::iter::once(0), |mut b, _| {
                                 b.push_bind(proposal_id)
-                                    .push_bind(tx_data.vote.is_yay())
-                                    .push_bind(tx_data.vote.is_default_vote())
+                                    .push_bind(tx_data.vote.to_string())
                                     .push_bind(tx_data.voter.encode())
                                     .push_bind(&hash_id);
                             })
@@ -894,8 +895,7 @@ impl Database {
             let mut fee_token: Option<String> = None;
             let mut gas_limit_multiplier: Option<i64> = None;
             if let TxType::Wrapper(txw) = tx.header().tx_type {
-                fee_amount_per_gas_unit =
-                    Some(txw.fee.amount_per_gas_unit.raw_amount().to_string());
+                fee_amount_per_gas_unit = Some(txw.fee.amount_per_gas_unit.to_string_precise());
                 fee_token = Some(txw.fee.token.to_string());
                 let multiplier: u64 = txw.gas_limit.into();
                 // WARNING! converting into i64 might ended up changing the value but there is little
