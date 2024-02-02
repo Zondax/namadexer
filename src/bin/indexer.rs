@@ -60,5 +60,5 @@ async fn main() -> Result<(), Error> {
     start_metrics_server(cfg.prometheus_config()).await?;
 
     info!("Starting indexer");
-    start_indexing(db, cfg.indexer_config()).await
+    start_indexing(db, cfg.indexer_config(), cfg.database.create_index).await
 }
