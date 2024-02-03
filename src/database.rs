@@ -582,6 +582,7 @@ impl Database {
                     gas_limit_multiplier,
                     code,
                     data,
+                    memo_hash,
                     return_code
                 )",
             network
@@ -892,6 +893,8 @@ impl Database {
             // values only set if transaction type is Wrapper
             let mut fee_amount_per_gas_unit: Option<String> = None;
             let mut fee_token: Option<String> = None;
+            let mut memo_hash = tx.header().memo_hash.to_vec();
+
             let mut gas_limit_multiplier: Option<i64> = None;
             if let TxType::Wrapper(txw) = tx.header().tx_type {
                 fee_amount_per_gas_unit = Some(txw.fee.amount_per_gas_unit.to_string_precise());
@@ -912,6 +915,7 @@ impl Database {
                 gas_limit_multiplier,
                 code,
                 tx.data().map(|v| v.to_vec()),
+                memo_hash,
                 return_code,
             ));
         }
@@ -936,6 +940,7 @@ impl Database {
                     fee_gas_limit_multiplier,
                     code,
                     data,
+                    memo_hash,
                     return_code,
                 )| {
                     b.push_bind(hash)
@@ -947,6 +952,7 @@ impl Database {
                         .push_bind(fee_gas_limit_multiplier)
                         .push_bind(code)
                         .push_bind(data)
+                        .push_bind(memo_hash)
                         .push_bind(return_code);
                 },
             )
