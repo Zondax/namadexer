@@ -776,7 +776,6 @@ impl Database {
                             "INSERT INTO {}.vote_proposal(
                                 vote_proposal_id,
                                 vote,
-                                vote_default,
                                 voter,
                                 tx_id
                             )",
