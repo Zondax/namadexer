@@ -31,6 +31,29 @@ pub async fn get_tx_by_hash(
     Ok(Json(Some(tx)))
 }
 
+pub async fn get_tx_by_memo(
+    State(state): State<ServerState>,
+    Path(memo): Path<String>,
+) -> Result<Json<Vec<TxInfo>>, Error> {
+    info!("calling /tx_by_memo/:memo{}", memo);
+
+    let rows = state.db.get_tx_memo(memo).await?;
+
+    let mut infos: Vec<TxInfo> = Vec::new();
+
+    for row in rows {
+
+        let mut tx = TxInfo::try_from(row)?;
+
+        // ignore the error for now
+        _ = tx.decode_tx(&state.checksums_map);
+
+        infos.push(tx);
+    };
+
+    Ok(Json(infos))
+}
+
 // Return a list of the shielded assets and their total compiled using all the shielded transactions (in, internal and out)
 pub async fn get_shielded_tx(
     State(state): State<ServerState>,

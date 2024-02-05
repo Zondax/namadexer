@@ -1204,6 +1204,22 @@ impl Database {
     }
 
     #[instrument(skip(self))]
+    /// Returns Transaction identified by hash
+    pub async fn get_tx_memo(&self, memo: String) -> Result<Vec<Row>, Error> {
+        // query for transaction with hash
+        let str = format!(
+            "SELECT * FROM {}.{TX_TABLE_NAME} t WHERE t.memo=convert_to($1, 'LATIN1')",
+            self.network
+        );
+
+        query(&str)
+            .bind(memo)
+            .fetch_all(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
+    #[instrument(skip(self))]
     /// Returns Shielded transactions
     pub async fn get_shielded_tx(&self) -> Result<Vec<Row>, Error> {
         // query for transaction with hash

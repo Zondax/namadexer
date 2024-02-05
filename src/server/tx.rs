@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::BlockInfo;
 use namada_sdk::ibc::apps::transfer::types::msgs::transfer::MsgTransfer;
 use namada_sdk::tx::data::pos::BecomeValidator;
 use namada_sdk::types::key::common::PublicKey;
@@ -80,12 +81,17 @@ pub struct TxInfo {
     /// Gas limit (only for Wrapper tx)
     gas_limit_multiplier: Option<i64>,
     /// The transaction code. Match what is in the checksum.js
+    code_type: Option<String>,
     #[serde(serialize_with = "serialize_optional_hex")]
     code: Option<Vec<u8>>,
     #[serde(serialize_with = "serialize_optional_hex")]
     data: Option<Vec<u8>>,
+    #[serde(serialize_with = "serialize_optional_hex")]
+    memo: Option<Vec<u8>>,
     /// Inner transaction type
     tx: Option<TxDecoded>,
+    /// Inner block info
+    block: Option<BlockInfo>,
 }
 
 impl TxInfo {
@@ -187,8 +193,10 @@ impl TryFrom<Row> for TxInfo {
         let fee_amount_per_gas_unit = row.try_get("fee_amount_per_gas_unit")?;
         let fee_token = row.try_get("fee_token")?;
         let gas_limit_multiplier = row.try_get("gas_limit_multiplier")?;
+        let code_type = row.try_get("code_type")?;
         let code: Option<Vec<u8>> = row.try_get("code")?;
         let data: Option<Vec<u8>> = row.try_get("data")?;
+        let memo: Option<Vec<u8>> = row.try_get("memo")?;
 
         Ok(Self {
             hash,
@@ -198,9 +206,12 @@ impl TryFrom<Row> for TxInfo {
             fee_amount_per_gas_unit,
             fee_token,
             gas_limit_multiplier,
+            code_type,
             code,
             data,
+            memo,
             tx: None,
+            block: None
         })
     }
 }

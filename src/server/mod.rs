@@ -26,7 +26,7 @@ pub(crate) use utils::{from_hex, serialize_hex};
 use self::endpoints::{
     account::get_account_updates,
     block::{get_block_by_hash, get_block_by_height, get_last_block},
-    transaction::{get_shielded_tx, get_tx_by_hash, get_vote_proposal},
+    transaction::{get_shielded_tx, get_tx_by_hash, get_tx_by_memo, get_vote_proposal},
     validator::get_validator_uptime,
 };
 
@@ -48,6 +48,7 @@ fn server_routes(state: ServerState) -> Router<()> {
         .route("/tx/:tx_hash", get(get_tx_by_hash))
         .route("/tx/vote_proposal/:proposal_id", get(get_vote_proposal))
         .route("/tx/shielded", get(get_shielded_tx))
+        .route("/tx_by_memo/:memo", get(get_tx_by_memo))
         .route("/account/updates/:account_id", get(get_account_updates))
         .route(
             "/validator/:validator_address/uptime",
