@@ -17,6 +17,7 @@ host = "localhost"
 user = "postgres"
 password = "wow"
 dbname = "blockchain"
+create_index = true
 
 # The tendermint RPC address and port to access the Namada node
 [indexer]
