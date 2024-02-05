@@ -166,7 +166,11 @@ fn blocks_stream(
 ///
 /// `config` The configuration containing required information used to connect to namada node
 /// to retrieve blocks from.
-pub async fn start_indexing(db: Database, config: &IndexerConfig) -> Result<(), Error> {
+pub async fn start_indexing(
+    db: Database,
+    config: &IndexerConfig,
+    create_index: bool,
+) -> Result<(), Error> {
     info!("***** Starting indexer *****");
 
     /********************
@@ -235,10 +239,13 @@ pub async fn start_indexing(db: Database, config: &IndexerConfig) -> Result<(), 
         // create indexes if they have not been created yet
         if !has_indexes && latest_block.block.header.height == height {
             info!("We are synced!");
-            info!("Creating indexes");
-            db.create_indexes().await?;
 
-            info!("Indexing done");
+            if create_index {
+                info!("Creating indexes");
+                db.create_indexes().await?;
+
+                info!("Indexing done");
+            }
         }
 
         current_height += 1;

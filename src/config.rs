@@ -39,6 +39,8 @@ pub struct DatabaseConfig {
     pub dbname: String,
     // The limit in seconds to wait for a ready database connection
     pub connection_timeout: Option<u64>,
+    //  Give the option to skip the index creation
+    pub create_index: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -111,6 +113,7 @@ impl Default for DatabaseConfig {
             password: "wow".to_owned(),
             dbname: "blockchain".to_owned(),
             connection_timeout: None,
+            create_index: true,
         }
     }
 }
@@ -135,6 +138,8 @@ pub struct CliSettings {
     pub database_dbname: String,
     #[clap(long, env)]
     pub database_connection_timeout: Option<u64>,
+    #[clap(long, env, default_value = "true")]
+    pub database_create_index: bool,
     #[clap(long, env, default_value = TENDERMINT_ADDR)]
     pub indexer_tendermint_addr: String,
     #[clap(long, env, action=ArgAction::SetFalse)]
@@ -185,6 +190,7 @@ impl From<CliSettings> for Settings {
                 password: value.database_password,
                 dbname: value.database_dbname,
                 connection_timeout: value.database_connection_timeout,
+                create_index: value.database_create_index,
             },
             server: ServerConfig {
                 serve_at: value.server_serve_at,
