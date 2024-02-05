@@ -209,7 +209,6 @@ impl TryFrom<Row> for TxInfo {
 pub struct VoteProposalTx {
     pub id: u64,
     pub vote: bool,
-    pub is_default: bool,
     pub voter: String,
     pub delegations: Vec<String>,
     #[serde(with = "hex::serde")]
@@ -224,7 +223,6 @@ impl TryFrom<Row> for VoteProposalTx {
         let id = u64::from_be_bytes(id);
 
         let vote = value.try_get::<bool, _>("vote")?;
-        let is_default = value.try_get::<bool, _>("vote_default")?;
         let voter = value.try_get::<String, _>("voter")?;
         let tx_id = value.try_get::<Vec<u8>, _>("tx_id")?;
 
@@ -234,7 +232,6 @@ impl TryFrom<Row> for VoteProposalTx {
         Ok(Self {
             id,
             vote,
-            is_default,
             voter,
             delegations,
             tx_id,
