@@ -7,3 +7,4 @@ protoc/*
 checksums.*
 .idea
 config/Settings.toml
+.DS_Store
