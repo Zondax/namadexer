@@ -75,7 +75,7 @@ mod block_tests {
         let hc = httpc_test::new_client(address).expect("Server not running?");
         // hash bellow is the last block(301)
         let response = hc
-            .do_get("/block/hash/2b1f263011cba260b415518c7ee0f7531ff8134afd728997c459c6392d1e3a42")
+            .do_get("/block/hash/69b7c16b7a1eeca306968afba4398530b8d331d264ab2bb27e09647810a886f2")
             .await
             .expect("Block does not exist");
 
@@ -83,6 +83,6 @@ mod block_tests {
 
         let header = response.json_body_as::<BlockInfo>().unwrap();
 
-        assert_eq!(header.tx_hashes.len(), 4)
+        assert_eq!(header.tx_hashes.len(), 81)
     }
 }
