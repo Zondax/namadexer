@@ -75,7 +75,7 @@ mod block_tests {
         let hc = httpc_test::new_client(address).expect("Server not running?");
         // hash bellow is the last block(301)
         let response = hc
-            .do_get("/block/hash/2b1f263011cba260b415518c7ee0f7531ff8134afd728997c459c6392d1e3a42")
+            .do_get("/block/hash/c9424e1b6347450ab6a1ea391aee56d1d6eaf9740dd593f15e52daf5ddfd0149")
             .await
             .expect("Block does not exist");
 
