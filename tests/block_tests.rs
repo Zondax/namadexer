@@ -83,6 +83,6 @@ mod block_tests {
 
         let header = response.json_body_as::<BlockInfo>().unwrap();
 
-        assert_eq!(header.tx_hashes.len(), 4)
+        assert_eq!(header.tx_hashes.len(), 81)
     }
 }
