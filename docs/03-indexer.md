@@ -10,6 +10,7 @@ Settings.toml
 ```toml
 # Level of logging in the indexer
 log_level = "info"
+network = "public-testnet-15" # IMPORANT! Do not use `.` just put the name of the network and don't have the hash (e.g 'shielded-expedition.b40d8e9055' becomes 'shielded-expedition')
 
 # Connection information for the PostgreSQL database
 [database]
@@ -17,6 +18,7 @@ host = "localhost"
 user = "postgres"
 password = "wow"
 dbname = "blockchain"
+create_index = true
 
 # The tendermint RPC address and port to access the Namada node
 [indexer]

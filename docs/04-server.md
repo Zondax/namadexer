@@ -6,8 +6,9 @@ The JSON server is written in Rust. It is using `axum` to create endpoints. It r
 
 Settings.toml
 
-```
+```toml
 log_level = "info"
+network = "public-testnet-15" # IMPORANT! Do not use `.` just put the name of the network and don't have the hash (e.g 'shielded-expedition.b40d8e9055' becomes 'shielded-expedition')
 
 # Connection information for the PostgreSQL database
 [database]
