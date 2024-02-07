@@ -1253,6 +1253,18 @@ impl Database {
             .map_err(Error::from)
     }
 
+    #[instrument(skip(self))]
+    /// Returns the latest stats
+    pub async fn get_tx_stats(&self) -> Result<Vec<Row>, Error> {
+        let str = format!("SELECT COALESCE(t.return_code, 999) as return_code, count(t.*) as tx_count FROM {0}.{TX_VIEW_NAME} t GROUP BY t.return_code", self.network);
+
+        // use query_one as the row matching max height is unique.
+        query(&str)
+            .fetch_all(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
     /// Retrieves a historical list of thresholds associated with a given account.
     ///
     /// This function executes a SQL query to aggregate thresholds (`ARRAY_AGG`) for the specified
