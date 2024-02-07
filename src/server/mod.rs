@@ -15,8 +15,10 @@ use crate::utils::load_checksums;
 
 pub mod blocks;
 pub mod tx;
+pub mod tx_details;
 pub use blocks::BlockInfo;
 pub use tx::TxInfo;
+pub use tx_details::TxDetails;
 pub mod account;
 mod endpoints;
 pub mod shielded;

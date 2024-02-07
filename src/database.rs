@@ -45,13 +45,14 @@ use crate::tables::{
     get_create_delegations_table, get_create_evidences_table_query,
     get_create_transactions_table_query, get_create_tx_bond_table_query,
     get_create_tx_bridge_pool_table_query, get_create_tx_transfer_table_query,
-    get_create_vote_proposal_table,
+    get_create_vote_proposal_table, get_create_transactions_view_query
 };
 
 use metrics::{histogram, increment_counter};
 
 const BLOCKS_TABLE_NAME: &str = "blocks";
 const TX_TABLE_NAME: &str = "transactions";
+const TX_VIEW_NAME: &str = "tx_details";
 
 // Max time to wait for a succesfull database connection
 const DATABASE_TIMEOUT: u64 = 60;
@@ -157,6 +158,11 @@ impl Database {
             .await?;
 
         query(get_create_delegations_table(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        // Views
+        query(get_create_transactions_view_query(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
@@ -1204,11 +1210,11 @@ impl Database {
     }
 
     #[instrument(skip(self))]
-    /// Returns Transaction identified by hash
+    /// Returns Transaction identified by memo
     pub async fn get_tx_memo(&self, memo: String) -> Result<Vec<Row>, Error> {
-        // query for transaction with hash
+        // query for transaction with memo
         let str = format!(
-            "SELECT * FROM {}.{TX_TABLE_NAME} t WHERE t.memo=convert_to($1, 'LATIN1')",
+            "SELECT * FROM {}.{TX_VIEW_NAME} t WHERE t.memo=$1",
             self.network
         );
 

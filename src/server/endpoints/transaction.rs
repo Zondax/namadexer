@@ -5,7 +5,7 @@ use axum::{
 use tracing::info;
 
 use crate::{
-    server::{shielded, tx::VoteProposalTx, ServerState, TxInfo},
+    server::{shielded, tx::VoteProposalTx, ServerState, TxInfo, TxDetails},
     Error,
 };
 
@@ -34,16 +34,16 @@ pub async fn get_tx_by_hash(
 pub async fn get_tx_by_memo(
     State(state): State<ServerState>,
     Path(memo): Path<String>,
-) -> Result<Json<Vec<TxInfo>>, Error> {
+) -> Result<Json<Vec<TxDetails>>, Error> {
     info!("calling /tx_by_memo/:memo{}", memo);
 
     let rows = state.db.get_tx_memo(memo).await?;
 
-    let mut infos: Vec<TxInfo> = Vec::new();
+    let mut infos: Vec<TxDetails> = Vec::new();
 
     for row in rows {
 
-        let mut tx = TxInfo::try_from(row)?;
+        let mut tx = TxDetails::try_from(row)?;
 
         // ignore the error for now
         _ = tx.decode_tx(&state.checksums_map);

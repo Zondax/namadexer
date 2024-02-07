@@ -210,3 +210,29 @@ pub fn get_create_delegations_table(network: &str) -> String {
         network
     )
 }
+
+// views
+pub fn get_create_transactions_view_query(network: &str) -> String {
+    format!(
+        "CREATE OR REPLACE VIEW {}.tx_details as (
+            SELECT 
+                b.header_height, 
+                b.header_time, 
+                encode(t.hash, 'hex') as tx_hash, 
+                encode(t.block_id, 'hex') as block_hash, 
+                encode(t.wrapper_id, 'hex') as wrapper_hash, 
+                t.tx_type, 
+                t.fee_amount_per_gas_unit, 
+                t.fee_token, 
+                t.gas_limit_multiplier, 
+                t.code_type, 
+                t.code,
+                t.data, 
+                encode(t.memo, 'escape') as memo, 
+                t.return_code 
+            FROM {}.transactions t
+                LEFT JOIN {}.blocks b on b.block_id = t.block_id
+            ORDER BY b.header_height DESC);",
+        network, network, network
+    )
+}
