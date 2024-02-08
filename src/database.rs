@@ -43,9 +43,9 @@ use crate::tables::{
     get_create_account_public_keys_table, get_create_account_updates_table,
     get_create_block_table_query, get_create_commit_signatures_table_query,
     get_create_delegations_table, get_create_evidences_table_query,
-    get_create_transactions_table_query, get_create_tx_bond_table_query,
-    get_create_tx_bridge_pool_table_query, get_create_tx_transfer_table_query,
-    get_create_vote_proposal_table, get_create_transactions_view_query
+    get_create_transactions_table_query, get_create_transactions_view_query,
+    get_create_tx_bond_table_query, get_create_tx_bridge_pool_table_query,
+    get_create_tx_transfer_table_query, get_create_vote_proposal_table,
 };
 
 use metrics::{histogram, increment_counter};
@@ -777,8 +777,7 @@ impl Database {
                                     .push_bind(tx_bridge.transfer.sender.to_string())
                                     .push_bind(tx_bridge.transfer.amount.to_string_native())
                                     .push_bind(tx_bridge.gas_fee.amount.to_string_native())
-                                    .push_bind(tx_bridge.gas_fee.payer.to_string())
-                                    .push_bind(false);
+                                    .push_bind(tx_bridge.gas_fee.payer.to_string());
                             })
                             .build();
                         query.execute(&mut *sqlx_tx).await?;
