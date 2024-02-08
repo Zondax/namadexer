@@ -545,7 +545,7 @@ impl Database {
     /// database.
     #[instrument(skip(txs, block_id, sqlx_tx, checksums_map, network))]
     async fn save_transactions<'a>(
-        txs: &Vec<Vec<u8>>,
+        txs: &[Vec<u8>],
         block_id: &[u8],
         block_height: u64,
         block_results: &block_results::Response,
@@ -1013,15 +1013,15 @@ impl Database {
             .execute(&*self.pool)
             .await?;
 
-        query(
-            format!(
-                "ALTER TABLE {}.tx_transfer ADD CONSTRAINT pk_tx_id_transfer PRIMARY KEY (tx_id);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
+        // query(
+        //     format!(
+        //         "ALTER TABLE {}.tx_transfer ADD CONSTRAINT pk_tx_id_transfer PRIMARY KEY (tx_id);",
+        //         self.network
+        //     )
+        //     .as_str(),
+        // )
+        // .execute(&*self.pool)
+        // .await?;
 
         query(
             format!(
@@ -1043,25 +1043,25 @@ impl Database {
         .execute(&*self.pool)
         .await?;
 
-        query(
-            format!(
-                "ALTER TABLE {}.tx_bond ADD CONSTRAINT pk_tx_id_bond PRIMARY KEY (tx_id);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
+        // query(
+        //     format!(
+        //         "ALTER TABLE {}.tx_bond ADD CONSTRAINT pk_tx_id_bond PRIMARY KEY (tx_id);",
+        //         self.network
+        //     )
+        //     .as_str(),
+        // )
+        // .execute(&*self.pool)
+        // .await?;
 
-        query(
-            format!(
-                "ALTER TABLE {}.tx_bridge_pool ADD CONSTRAINT pk_tx_id_bridge PRIMARY KEY (tx_id);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
+        // query(
+        //     format!(
+        //         "ALTER TABLE {}.tx_bridge_pool ADD CONSTRAINT pk_tx_id_bridge PRIMARY KEY (tx_id);",
+        //         self.network
+        //     )
+        //     .as_str(),
+        // )
+        // .execute(&*self.pool)
+        // .await?;
 
         query(
             format!(
