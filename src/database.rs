@@ -998,15 +998,16 @@ impl Database {
         .execute(&*self.pool)
         .await?;
 
-        query(
-            format!(
-                "ALTER TABLE {}.transactions ADD CONSTRAINT pk_hash PRIMARY KEY (hash);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
+        // If a failed transaction is resent and successfull we don't have a unique private key in the tx hash...
+        // query(
+        //     format!(
+        //         "ALTER TABLE {}.transactions ADD CONSTRAINT pk_hash PRIMARY KEY (hash);",
+        //         self.network
+        //     )
+        //     .as_str(),
+        // )
+        // .execute(&*self.pool)
+        // .await?;
 
         query(format!("ALTER TABLE {0}.transactions ADD CONSTRAINT fk_block_id FOREIGN KEY (block_id) REFERENCES {0}.blocks (block_id);", self.network).as_str())
             .execute(&*self.pool)
