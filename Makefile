@@ -1,6 +1,6 @@
 #!/bin/sh
 
-NAMADA_VERSION := 0.31.0
+NAMADA_VERSION := 0.31.2
 BASE_URL := https://raw.githubusercontent.com/anoma/namada
 URL := $(BASE_URL)/v$(NAMADA_VERSION)/wasm/checksums.json
 
