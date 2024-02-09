@@ -1434,7 +1434,11 @@ impl Database {
 
     #[instrument(skip(self))]
     /// Returns the latest block, otherwise returns an Error.
-    pub async fn get_lastest_blocks(&self, num: &i32, offset: Option<&i32>) -> Result<Vec<Row>, Error> {
+    pub async fn get_lastest_blocks(
+        &self,
+        num: &i32,
+        offset: Option<&i32>,
+    ) -> Result<Vec<Row>, Error> {
         let str = format!("SELECT * FROM {0}.{BLOCKS_TABLE_NAME} ORDER BY header_height DESC LIMIT {1} OFFSET {2};", self.network, num, offset.unwrap_or(&  0));
 
         // use query_one as the row matching max height is unique.
