@@ -3,13 +3,22 @@ use axum::{
     Json,
 };
 use sqlx::Row as TRow;
+use tendermint::Block;
 use tracing::info;
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     server::{blocks::HashID, blocks::TxShort, ServerState},
     BlockInfo, Error,
 };
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum LatestBlock {
+    LastBlock(BlockInfo),
+    LatestBlocks(Vec<BlockInfo>),
+}
 
 async fn get_tx_hashes(
     state: &ServerState,
@@ -70,7 +79,7 @@ pub async fn get_block_by_height(
     Ok(Json(Some(block)))
 }
 
-pub async fn get_last_block(State(state): State<ServerState>, Query(params): Query<HashMap<String, i32>>) -> Result<Json<Vec<BlockInfo>>, Error> {
+pub async fn get_last_block(State(state): State<ServerState>, Query(params): Query<HashMap<String, i32>>) -> Result<Json<LatestBlock>, Error> {
     info!("calling /block/last");
 
     let num = params.get("num");
@@ -89,7 +98,7 @@ pub async fn get_last_block(State(state): State<ServerState>, Query(params): Que
             blocks.push(block);
         }
 
-        Ok(Json(blocks))
+        Ok(Json(LatestBlock::LatestBlocks(blocks)))
 
     } else {
         let row = state.db.get_last_block().await?;
@@ -99,6 +108,6 @@ pub async fn get_last_block(State(state): State<ServerState>, Query(params): Que
         let block_id: Vec<u8> = row.try_get("block_id")?;
         get_tx_hashes(&state, &mut block, &block_id).await?;
     
-        Ok(Json(vec![block]))
+        Ok(Json(LatestBlock::LastBlock(block)))
     }
 }
