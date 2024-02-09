@@ -5,7 +5,6 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use sqlx::Row as TRow;
 use std::collections::HashMap;
-use tendermint::Block;
 use tracing::info;
 
 use crate::{
@@ -16,7 +15,7 @@ use crate::{
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum LatestBlock {
-    LastBlock(BlockInfo),
+    LastBlock(Box<BlockInfo>),
     LatestBlocks(Vec<BlockInfo>),
 }
 
@@ -110,6 +109,6 @@ pub async fn get_last_block(
         let block_id: Vec<u8> = row.try_get("block_id")?;
         get_tx_hashes(&state, &mut block, &block_id).await?;
 
-        Ok(Json(LatestBlock::LastBlock(block)))
+        Ok(Json(LatestBlock::LastBlock(Box::new(block))))
     }
 }
