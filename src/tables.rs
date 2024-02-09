@@ -40,7 +40,7 @@ pub fn get_create_transactions_table_query(network: &str) -> String {
         fee_token TEXT,
         gas_limit_multiplier BIGINT,
         code BYTEA,
-        data BYTEA,
+        data JSON,
         return_code INTEGER
     );",
         network
@@ -56,49 +56,6 @@ pub fn get_create_evidences_table_query(network: &str) -> String {
         address BYTEA,
         total_voting_power TEXT NOT NULL,
         validator_power TEXT NOT NULL
-    );",
-        network
-    )
-}
-
-pub fn get_create_tx_transfer_table_query(network: &str) -> String {
-    format!(
-        "CREATE TABLE IF NOT EXISTS {}.tx_transfer (
-        tx_id BYTEA NOT NULL,
-        source TEXT NOT NULL,
-        target TEXT NOT NULL,
-        token TEXT NOT NULL,
-        amount TEXT NOT NULL,
-        key TEXT,
-        shielded BYTEA
-    );",
-        network
-    )
-}
-
-pub fn get_create_tx_bond_table_query(network: &str) -> String {
-    format!(
-        "CREATE TABLE IF NOT EXISTS {}.tx_bond (
-        tx_id BYTEA NOT NULL,
-        validator TEXT NOT NULL,
-        amount TEXT NOT NULL,
-        source TEXT,
-        bond BOOL NOT NULL
-    );",
-        network
-    )
-}
-
-pub fn get_create_tx_bridge_pool_table_query(network: &str) -> String {
-    format!(
-        "CREATE TABLE IF NOT EXISTS {}.tx_bridge_pool (
-        tx_id BYTEA NOT NULL,
-        asset TEXT NOT NULL,
-        recipient TEXT NOT NULL,
-        sender TEXT NOT NULL,
-        amount TEXT NOT NULL,
-        gas_amount TEXT NOT NULL,
-        payer TEXT NOT NULL
     );",
         network
     )
