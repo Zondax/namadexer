@@ -765,8 +765,7 @@ impl Database {
                                     .push_bind(tx_bridge.transfer.sender.to_string())
                                     .push_bind(tx_bridge.transfer.amount.to_string_native())
                                     .push_bind(tx_bridge.gas_fee.amount.to_string_native())
-                                    .push_bind(tx_bridge.gas_fee.payer.to_string())
-                                    .push_bind(false);
+                                    .push_bind(tx_bridge.gas_fee.payer.to_string());
                             })
                             .build();
                         query.execute(&mut *sqlx_tx).await?;
