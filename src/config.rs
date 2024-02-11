@@ -232,9 +232,9 @@ impl Settings {
             let settings: Self = config.try_deserialize().map_err(Error::from)?;
 
             // verify if network is correct
-            if settings.network.contains('.') {
-                panic!("network cannot contains '.' (example of valid network 'public-testnet-14')")
-            }
+            //if settings.network.contains('.') {
+                //panic!("network cannot contains '.' (example of valid network 'public-testnet-14')")
+            //}
 
             return Ok(settings);
         }
