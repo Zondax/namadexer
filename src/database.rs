@@ -633,7 +633,7 @@ impl Database {
                 }
 
                 // look for wrapper tx to link to
-                let txs = query(&format!("SELECT * FROM {0}.transactions WHERE block_id IN (SELECT block_id FROM {0}.blocks WHERE header_height = {1});", network, block_height-1))
+                let txs = query(&format!("SELECT * FROM \"{0}\".transactions WHERE block_id IN (SELECT block_id FROM \"{0}\".blocks WHERE header_height = {1});", network, block_height-1))
                     .fetch_all(&mut *sqlx_tx)
                     .await?;
                 txid_wrapper = txs[i].try_get("hash")?;
@@ -1008,7 +1008,7 @@ impl Database {
         // .execute(&*self.pool)
         // .await?;
 
-        query(format!("ALTER TABLE {0}.transactions ADD CONSTRAINT fk_block_id FOREIGN KEY (block_id) REFERENCES {0}.blocks (block_id);", self.network).as_str())
+        query(format!("ALTER TABLE \"{0}\".transactions ADD CONSTRAINT fk_block_id FOREIGN KEY (block_id) REFERENCES \"{0}\".blocks (block_id);", self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
@@ -1136,7 +1136,7 @@ impl Database {
     #[instrument(skip(self))]
     /// Returns the latest block, otherwise returns an Error.
     pub async fn get_last_block(&self) -> Result<Row, Error> {
-        let str = format!("SELECT * FROM {0}.{BLOCKS_TABLE_NAME} WHERE header_height = (SELECT MAX(header_height) FROM {0}.{BLOCKS_TABLE_NAME})", self.network);
+        let str = format!("SELECT * FROM \"{0}\".{BLOCKS_TABLE_NAME} WHERE header_height = (SELECT MAX(header_height) FROM \"{0}\".{BLOCKS_TABLE_NAME})", self.network);
 
         // use query_one as the row matching max height is unique.
         query(&str)
@@ -1180,7 +1180,7 @@ impl Database {
     /// Returns all the tx hashes for a block
     pub async fn get_tx_hashes_block(&self, hash: &[u8]) -> Result<Vec<Row>, Error> {
         // query for all tx hash that are in a block identified by the block_id
-        let str = format!("SELECT t.hash, t.tx_type FROM {0}.{BLOCKS_TABLE_NAME} b JOIN {0}.{TX_TABLE_NAME} t ON b.block_id = t.block_id WHERE b.block_id = $1;", self.network);
+        let str = format!("SELECT t.hash, t.tx_type FROM \"{0}\".{BLOCKS_TABLE_NAME} b JOIN \"{0}\".{TX_TABLE_NAME} t ON b.block_id = t.block_id WHERE b.block_id = $1;", self.network);
 
         query(&str)
             .bind(hash)
@@ -1404,20 +1404,20 @@ impl Database {
         // if no parameters defined we return result on the last 500 blocks
         let mut q = format!(
             "SELECT COUNT(*)
-                FROM {0}.commit_signatures
+                FROM \"{0}\".commit_signatures
                 WHERE validator_address = $1
                 AND block_id IN
-                    (SELECT block_id FROM {0}.blocks WHERE header_height BETWEEN (SELECT MAX(header_height) FROM {0}.blocks) - 499 AND (SELECT MAX(header_height) FROM {0}.blocks))",
+                    (SELECT block_id FROM \"{0}\".blocks WHERE header_height BETWEEN (SELECT MAX(header_height) FROM \"{0}\".blocks) - 499 AND (SELECT MAX(header_height) FROM \"{0}\".blocks))",
             self.network,
         );
 
         if start.is_some() && end.is_some() {
             q = format!(
                 "SELECT COUNT(*)
-                    FROM {0}.commit_signatures
+                    FROM \"{0}\".commit_signatures
                     WHERE validator_address = $1
                     AND block_id IN
-                        (SELECT block_id FROM {0}.blocks WHERE header_height BETWEEN ($2 + 1) AND $3)",
+                        (SELECT block_id FROM \"{0}\".blocks WHERE header_height BETWEEN ($2 + 1) AND $3)",
                 self.network,
             );
         }
@@ -1438,7 +1438,7 @@ impl Database {
         num: &i32,
         offset: Option<&i32>,
     ) -> Result<Vec<Row>, Error> {
-        let str = format!("SELECT * FROM {0}.{BLOCKS_TABLE_NAME} ORDER BY header_height DESC LIMIT {1} OFFSET {2};", self.network, num, offset.unwrap_or(&  0));
+        let str = format!("SELECT * FROM \"{0}\".{BLOCKS_TABLE_NAME} ORDER BY header_height DESC LIMIT {1} OFFSET {2};", self.network, num, offset.unwrap_or(&  0));
 
         // use query_one as the row matching max height is unique.
         query(&str)
