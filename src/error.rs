@@ -3,7 +3,7 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::json;
 use std::error::Error as StdError;
-use std::num::ParseIntError;
+use std::num::{ParseIntError, ParseFloatError};
 use thiserror::Error as ThisError;
 use tokio::task::JoinError;
 
@@ -57,6 +57,8 @@ pub enum Error {
     Generic(Box<dyn StdError + Send>),
     #[error("ParseInt error")]
     ParseIntError(#[from] ParseIntError),
+    #[error("ParseFloat error")]
+    ParseFloatError(#[from] ParseFloatError),
 }
 
 impl From<SendError<(tendermint::Block, block_results::Response)>> for Error {
