@@ -1,6 +1,6 @@
 pub fn get_create_block_table_query(network: &str) -> String {
     format!(
-        "CREATE TABLE IF NOT EXISTS {}.blocks (
+        "CREATE TABLE IF NOT EXISTS \"{}\".blocks (
         block_id BYTEA NOT NULL,
         header_version_app INTEGER NOT NULL,
         header_version_block INTEGER NOT NULL,
@@ -31,7 +31,7 @@ pub fn get_create_block_table_query(network: &str) -> String {
 
 pub fn get_create_transactions_table_query(network: &str) -> String {
     format!(
-        "CREATE TABLE IF NOT EXISTS {}.transactions (
+        "CREATE TABLE IF NOT EXISTS \"{}\".transactions (
         hash BYTEA NOT NULL,
         block_id BYTEA NOT NULL,
         tx_type TEXT NOT NULL,
@@ -49,7 +49,7 @@ pub fn get_create_transactions_table_query(network: &str) -> String {
 
 pub fn get_create_evidences_table_query(network: &str) -> String {
     format!(
-        "CREATE TABLE IF NOT EXISTS {}.evidences (
+        "CREATE TABLE IF NOT EXISTS \"{}\".evidences (
         block_id BYTEA NOT NULL,
         height INTEGER,
         time TEXT,
@@ -63,7 +63,7 @@ pub fn get_create_evidences_table_query(network: &str) -> String {
 
 pub fn get_create_tx_transfer_table_query(network: &str) -> String {
     format!(
-        "CREATE TABLE IF NOT EXISTS {}.tx_transfer (
+        "CREATE TABLE IF NOT EXISTS \"{}\".tx_transfer (
         tx_id BYTEA NOT NULL,
         source TEXT NOT NULL,
         target TEXT NOT NULL,
@@ -78,7 +78,7 @@ pub fn get_create_tx_transfer_table_query(network: &str) -> String {
 
 pub fn get_create_tx_bond_table_query(network: &str) -> String {
     format!(
-        "CREATE TABLE IF NOT EXISTS {}.tx_bond (
+        "CREATE TABLE IF NOT EXISTS \"{}\".tx_bond (
         tx_id BYTEA NOT NULL,
         validator TEXT NOT NULL,
         amount TEXT NOT NULL,
@@ -91,7 +91,7 @@ pub fn get_create_tx_bond_table_query(network: &str) -> String {
 
 pub fn get_create_tx_bridge_pool_table_query(network: &str) -> String {
     format!(
-        "CREATE TABLE IF NOT EXISTS {}.tx_bridge_pool (
+        "CREATE TABLE IF NOT EXISTS \"{}\".tx_bridge_pool (
         tx_id BYTEA NOT NULL,
         asset TEXT NOT NULL,
         recipient TEXT NOT NULL,
@@ -106,7 +106,7 @@ pub fn get_create_tx_bridge_pool_table_query(network: &str) -> String {
 
 pub fn get_create_commit_signatures_table_query(network: &str) -> String {
     format!(
-        "CREATE TABLE IF NOT EXISTS {}.commit_signatures (
+        "CREATE TABLE IF NOT EXISTS \"{}\".commit_signatures (
         block_id BYTEA NOT NULL,
         block_id_flag INTEGER NOT NULL,
         validator_address BYTEA NOT NULL,
@@ -128,7 +128,7 @@ pub fn get_create_account_updates_table(network: &str) -> String {
     // Importan to mention that update_id is use to link public keys
     // to an update in time.
     format!(
-        "CREATE TABLE IF NOT EXISTS {}.account_updates (
+        "CREATE TABLE IF NOT EXISTS \"{}\".account_updates (
         update_id SERIAL PRIMARY KEY,
         account_id TEXT NOT NULL,
         vp_code_hash BYTEA,
@@ -146,9 +146,9 @@ pub fn get_create_account_public_keys_table(network: &str) -> String {
     // rows(public_keys) pointing to the same update_id, which is correct
     // as many keys are associated to the same account.
     format!(
-        "CREATE TABLE IF NOT EXISTS {}.account_public_keys (
+        "CREATE TABLE IF NOT EXISTS \"{}\".account_public_keys (
         id SERIAL,
-        update_id INTEGER REFERENCES {}.account_updates(update_id),
+        update_id INTEGER REFERENCES \"{}\".account_updates(update_id),
         public_key TEXT NOT NULL
     );",
         network, network
@@ -184,7 +184,7 @@ pub fn get_create_vote_proposal_table(network: &str) -> String {
     // to avoid issues, the reason is, because it is use as
     // a reference for the delegations table.
     format!(
-        "CREATE TABLE IF NOT EXISTS {}.vote_proposal (
+        "CREATE TABLE IF NOT EXISTS \"{}\".vote_proposal (
         vote_proposal_id BYTEA,
         vote TEXT NOT NULL,
         voter TEXT NOT NULL,
@@ -200,7 +200,7 @@ pub fn get_create_delegations_table(network: &str) -> String {
     // because we do not know with certainty if delegator are prohibited
     // of being part of another vote_proposal over time.
     format!(
-        "CREATE TABLE IF NOT EXISTS {}.delegations (
+        "CREATE TABLE IF NOT EXISTS \"{}\".delegations (
         id SERIAL,
         vote_proposal_id BYTEA,
         delegator_id TEXT NOT NULL

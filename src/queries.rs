@@ -1,6 +1,6 @@
 pub(crate) fn insert_block_query(network: &str) -> String {
     format!(
-        r#"INSERT INTO {}.blocks (
+        r#"INSERT INTO "{}".blocks (
         block_id, 
         header_version_app, 
         header_version_block, 

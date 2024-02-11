@@ -112,7 +112,7 @@ impl Database {
     pub async fn create_tables(&self) -> Result<(), Error> {
         info!("Creating tables if they don't exist");
 
-        query(&format!("CREATE SCHEMA IF NOT EXISTS {}", self.network))
+        query(&format!("CREATE SCHEMA IF NOT EXISTS \"{}\"", self.network))
             .execute(&*self.pool)
             .await?;
 
@@ -336,7 +336,7 @@ impl Database {
         info!("saving commit signatures");
 
         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-            "INSERT INTO {}.commit_signatures(
+            "INSERT INTO \"{}\".commit_signatures(
                 block_id,
                 block_id_flag,
                 validator_address,
@@ -447,7 +447,7 @@ impl Database {
         info!("saving evidences");
 
         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-            "INSERT INTO {}.evidences(
+            "INSERT INTO \"{}\".evidences(
                     block_id,
                     height,
                     time,
@@ -572,9 +572,9 @@ impl Database {
         info!(message = "Saving transactions");
 
         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-            "INSERT INTO {}.transactions(
-                    hash, 
-                    block_id, 
+            "INSERT INTO \"{}\".transactions(
+                    hash,
+                    block_id,
                     tx_type,
                     wrapper_id,
                     fee_amount_per_gas_unit,
@@ -659,10 +659,10 @@ impl Database {
                         let transfer = token::Transfer::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.tx_transfer(
+                            "INSERT INTO \"{}\".tx_transfer(
                                 tx_id,
-                                source, 
-                                target, 
+                                source,
+                                target,
                                 token,
                                 amount,
                                 key,
@@ -688,7 +688,7 @@ impl Database {
                         let bond = Bond::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.tx_bond(
+                            "INSERT INTO \"{}\".tx_bond(
                                 tx_id,
                                 validator,
                                 amount,
@@ -713,7 +713,7 @@ impl Database {
                         let unbond = Unbond::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.tx_bond(
+                            "INSERT INTO \"{}\".tx_bond(
                                 tx_id,
                                 validator,
                                 amount,
@@ -745,7 +745,7 @@ impl Database {
                         let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
 
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.tx_bridge_pool(
+                            "INSERT INTO \"{}\".tx_bridge_pool(
                                 tx_id,
                                 asset,
                                 recipient,
@@ -772,7 +772,7 @@ impl Database {
                     }
                     "tx_vote_proposal" => {
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.vote_proposal(
+                            "INSERT INTO \"{}\".vote_proposal(
                                 vote_proposal_id,
                                 vote,
                                 voter,
@@ -801,7 +801,7 @@ impl Database {
                         // if there are indeed delegator addresses in the list.
                         if !tx_data.delegations.is_empty() {
                             let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                                "INSERT INTO {}.delegations(
+                                "INSERT INTO \"{}\".delegations(
                                 vote_proposal_id,
                                 delegator_id
                             )",
@@ -849,7 +849,7 @@ impl Database {
                         let tx = UpdateAccount::try_from_slice(&data[..])?;
 
                         let insert_query = format!(
-                            "INSERT INTO {}.account_updates(account_id, vp_code_hash, threshold, tx_id) 
+                            "INSERT INTO \"{}\".account_updates(account_id, vp_code_hash, threshold, tx_id)
                                 VALUES ($1, $2, $3, $4) RETURNING update_id",
                             network
                         );
@@ -867,7 +867,7 @@ impl Database {
                             trace!("Storing {} public_keys", tx.public_keys.len());
 
                             let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                                "INSERT INTO {}.account_public_keys(
+                                "INSERT INTO \"{}\".account_public_keys(
                                 update_id,
                                 public_key
                             )",
@@ -978,7 +978,7 @@ impl Database {
         query(
             format!(
                 "
-                ALTER TABLE {}.blocks ADD CONSTRAINT pk_block_id PRIMARY KEY (block_id);
+                ALTER TABLE \"{}\".blocks ADD CONSTRAINT pk_block_id PRIMARY KEY (block_id);
             ",
                 self.network
             )
@@ -989,7 +989,7 @@ impl Database {
 
         query(
             format!(
-                "CREATE UNIQUE INDEX ux_header_height ON {}.blocks (header_height);",
+                "CREATE UNIQUE INDEX ux_header_height ON \"{}\".blocks (header_height);",
                 self.network
             )
             .as_str(),
@@ -1000,7 +1000,7 @@ impl Database {
         // If a failed transaction is resent and successfull we don't have a unique private key in the tx hash...
         // query(
         //     format!(
-        //         "ALTER TABLE {}.transactions ADD CONSTRAINT pk_hash PRIMARY KEY (hash);",
+        //         "ALTER TABLE \"{}\".transactions ADD CONSTRAINT pk_hash PRIMARY KEY (hash);",
         //         self.network
         //     )
         //     .as_str(),
@@ -1014,7 +1014,7 @@ impl Database {
 
         // query(
         //     format!(
-        //         "ALTER TABLE {}.tx_transfer ADD CONSTRAINT pk_tx_id_transfer PRIMARY KEY (tx_id);",
+        //         "ALTER TABLE \"{}\".tx_transfer ADD CONSTRAINT pk_tx_id_transfer PRIMARY KEY (tx_id);",
         //         self.network
         //     )
         //     .as_str(),
@@ -1024,7 +1024,7 @@ impl Database {
 
         query(
             format!(
-                "CREATE INDEX x_source_transfer ON {}.tx_transfer (source);",
+                "CREATE INDEX x_source_transfer ON \"{}\".tx_transfer (source);",
                 self.network
             )
             .as_str(),
@@ -1034,7 +1034,7 @@ impl Database {
 
         query(
             format!(
-                "CREATE INDEX x_target_transfer ON {}.tx_transfer (target);",
+                "CREATE INDEX x_target_transfer ON \"{}\".tx_transfer (target);",
                 self.network
             )
             .as_str(),
@@ -1044,7 +1044,7 @@ impl Database {
 
         // query(
         //     format!(
-        //         "ALTER TABLE {}.tx_bond ADD CONSTRAINT pk_tx_id_bond PRIMARY KEY (tx_id);",
+        //         "ALTER TABLE \"{}\".tx_bond ADD CONSTRAINT pk_tx_id_bond PRIMARY KEY (tx_id);",
         //         self.network
         //     )
         //     .as_str(),
@@ -1054,7 +1054,7 @@ impl Database {
 
         // query(
         //     format!(
-        //         "ALTER TABLE {}.tx_bridge_pool ADD CONSTRAINT pk_tx_id_bridge PRIMARY KEY (tx_id);",
+        //         "ALTER TABLE \"{}\".tx_bridge_pool ADD CONSTRAINT pk_tx_id_bridge PRIMARY KEY (tx_id);",
         //         self.network
         //     )
         //     .as_str(),
@@ -1064,7 +1064,7 @@ impl Database {
 
         query(
             format!(
-                "CREATE INDEX x_validator_bond ON {}.tx_bond (validator);",
+                "CREATE INDEX x_validator_bond ON \"{}\".tx_bond (validator);",
                 self.network
             )
             .as_str(),
@@ -1074,7 +1074,7 @@ impl Database {
 
         query(
             format!(
-                "CREATE INDEX x_source_bond ON {}.tx_bond (source);",
+                "CREATE INDEX x_source_bond ON \"{}\".tx_bond (source);",
                 self.network
             )
             .as_str(),
@@ -1084,7 +1084,7 @@ impl Database {
 
         query(
             format!(
-                "ALTER TABLE {}.account_public_keys ADD CONSTRAINT pk_id PRIMARY KEY (id);",
+                "ALTER TABLE \"{}\".account_public_keys ADD CONSTRAINT pk_id PRIMARY KEY (id);",
                 self.network
             )
             .as_str(),
@@ -1094,7 +1094,7 @@ impl Database {
 
         query(
             format!(
-                "ALTER TABLE {}.delegations ADD CONSTRAINT del_id PRIMARY KEY (id);",
+                "ALTER TABLE \"{}\".delegations ADD CONSTRAINT del_id PRIMARY KEY (id);",
                 self.network
             )
             .as_str(),
@@ -1109,7 +1109,7 @@ impl Database {
     pub async fn block_by_id(&self, block_id: &[u8]) -> Result<Option<Row>, Error> {
         // query for the block if it exists
         let str = format!(
-            "SELECT * FROM {}.{BLOCKS_TABLE_NAME} WHERE block_id=$1",
+            "SELECT * FROM \"{}\".{BLOCKS_TABLE_NAME} WHERE block_id=$1",
             self.network
         );
         query(&str)
@@ -1123,7 +1123,7 @@ impl Database {
     #[instrument(skip(self))]
     pub async fn block_by_height(&self, block_height: u32) -> Result<Option<Row>, Error> {
         let str = format!(
-            "SELECT * FROM {}.{BLOCKS_TABLE_NAME} WHERE header_height={block_height}",
+            "SELECT * FROM \"{}\".{BLOCKS_TABLE_NAME} WHERE header_height={block_height}",
             self.network
         );
 
@@ -1149,7 +1149,7 @@ impl Database {
     /// Returns the latest height value, otherwise returns an Error.
     pub async fn get_last_height(&self) -> Result<Row, Error> {
         let str = format!(
-            "SELECT MAX(header_height) AS header_height FROM {}.{BLOCKS_TABLE_NAME}",
+            "SELECT MAX(header_height) AS header_height FROM \"{}\".{BLOCKS_TABLE_NAME}",
             self.network
         );
 
@@ -1165,7 +1165,7 @@ impl Database {
     pub async fn get_tx(&self, hash: &[u8]) -> Result<Option<Row>, Error> {
         // query for transaction with hash
         let str = format!(
-            "SELECT * FROM {}.{TX_TABLE_NAME} WHERE hash=$1",
+            "SELECT * FROM \"{}\".{TX_TABLE_NAME} WHERE hash=$1",
             self.network
         );
 
@@ -1194,7 +1194,7 @@ impl Database {
     pub async fn get_shielded_tx(&self) -> Result<Vec<Row>, Error> {
         // query for transaction with hash
         let str = format!(
-            "SELECT * FROM {}.tx_transfer WHERE source = '{MASP_ADDR}' OR target = '{MASP_ADDR}'",
+            "SELECT * FROM \"{}\".tx_transfer WHERE source = '{MASP_ADDR}' OR target = '{MASP_ADDR}'",
             self.network
         );
 
@@ -1252,7 +1252,7 @@ impl Database {
         let to_query = format!(
             "
         SELECT COALESCE(ARRAY_AGG(threshold ORDER BY update_id ASC), ARRAY[]::int[]) AS thresholds
-        FROM {}.account_updates
+        FROM \"{}\".account_updates
         WHERE account_id = $1
         GROUP BY account_id;
         ",
@@ -1297,7 +1297,7 @@ impl Database {
         let to_query = format!(
             "
             SELECT COALESCE(ARRAY_AGG(vp_code_hash ORDER BY update_id ASC), ARRAY[]::bytea[]) AS code_hashes
-            FROM {}.account_updates
+            FROM \"{}\".account_updates
             WHERE account_id = $1
             GROUP BY account_id;
             ",
@@ -1345,9 +1345,9 @@ impl Database {
         let to_query = format!(
             "
             SELECT ARRAY_AGG(public_key ORDER BY id ASC) as public_keys_batch
-            FROM {}.account_public_keys 
+            FROM \"{}\".account_public_keys
             WHERE update_id IN (
-                SELECT update_id FROM {}.account_updates WHERE account_id = $1
+                SELECT update_id FROM \"{}\".account_updates WHERE account_id = $1
             )
             GROUP BY update_id
             ORDER BY update_id ASC;
@@ -1366,7 +1366,7 @@ impl Database {
 
     pub async fn vote_proposal_data(&self, proposal_id: u64) -> Result<Option<Row>, Error> {
         let query = format!(
-            "SELECT * FROM {}.vote_proposal WHERE vote_proposal_id = $1",
+            "SELECT * FROM \"{}\".vote_proposal WHERE vote_proposal_id = $1",
             self.network
         );
 
@@ -1380,8 +1380,8 @@ impl Database {
 
     pub async fn vote_proposal_delegations(&self, proposal_id: u64) -> Result<Vec<Row>, Error> {
         let q = format!(
-            "SELECT delegator_id 
-                FROM {}.delegations 
+            "SELECT delegator_id
+                FROM \"{}\".delegations
                 WHERE vote_proposal_id = $1",
             self.network
         );
