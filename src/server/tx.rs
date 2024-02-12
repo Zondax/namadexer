@@ -208,7 +208,7 @@ impl TryFrom<Row> for TxInfo {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct VoteProposalTx {
     pub id: u64,
-    pub vote: bool,
+    pub vote: String,
     pub voter: String,
     pub delegations: Vec<String>,
     #[serde(with = "hex::serde")]
@@ -222,7 +222,7 @@ impl TryFrom<Row> for VoteProposalTx {
         let id = value.try_get::<[u8; std::mem::size_of::<u64>()], _>("vote_proposal_id")?;
         let id = u64::from_be_bytes(id);
 
-        let vote = value.try_get::<bool, _>("vote")?;
+        let vote = value.try_get::<String, _>("vote")?;
         let voter = value.try_get::<String, _>("voter")?;
         let tx_id = value.try_get::<Vec<u8>, _>("tx_id")?;
 
