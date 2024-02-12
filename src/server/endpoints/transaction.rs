@@ -25,9 +25,6 @@ pub async fn get_tx_by_hash(
     };
     let mut tx = TxInfo::try_from(row)?;
 
-    // ignore the error for now
-    _ = tx.decode_tx(&state.checksums_map);
-
     Ok(Json(Some(tx)))
 }
 

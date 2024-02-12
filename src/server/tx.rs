@@ -91,8 +91,7 @@ pub struct TxInfo {
     /// The transaction code. Match what is in the checksum.js
     #[serde(serialize_with = "serialize_optional_hex")]
     code: Option<Vec<u8>>,
-    #[serde(serialize_with = "serialize_optional_hex")]
-    data: Option<Vec<u8>>,
+    data: Option<serde_json::Value>,
     return_code: Option<i32>, // New field for return_code
     /// Inner transaction type
     tx: Option<TxDecoded>,
@@ -111,7 +110,7 @@ impl TxInfo {
         hex::encode(code)
     }
 
-    pub fn data(&self) -> Vec<u8> {
+    pub fn data(&self) -> serde_json::Value {
         self.data.clone().unwrap_or_default()
     }
 
@@ -226,7 +225,7 @@ impl TryFrom<Row> for TxInfo {
         let fee_token = row.try_get("fee_token")?;
         let gas_limit_multiplier = row.try_get("gas_limit_multiplier")?;
         let code: Option<Vec<u8>> = row.try_get("code")?;
-        let data: Option<Vec<u8>> = row.try_get("data")?;
+        let data: Option<serde_json::Value> = row.try_get("data")?;
         let return_code = row.try_get("return_code")?;
 
         Ok(Self {
