@@ -79,5 +79,5 @@ $ curl -H 'Content-Type: application/json' localhost:30303/tx/shielded
 This endpoint will look for a vote proposal identified by proposal_id(integer)
 
 ```
-$ curl -H 'Content-Type: application/json' localhost:30303/tx/shielded
+$ curl -H 'Content-Type: application/json' localhost:30303/tx/vote_proposal/1
 ```
