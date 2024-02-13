@@ -16,7 +16,9 @@ host = "localhost"
 user = "postgres"
 password = "wow"
 dbname = "blockchain"
-
+port = 5432
+connection_timeout = 20 # Optional timeout value
+create_index = true
 
 [server]
 serve_at = "0.0.0.0"
