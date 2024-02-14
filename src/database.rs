@@ -17,7 +17,6 @@ use namada_sdk::{
     },
     types::{
         address::Address,
-        eth_bridge_pool::PendingTransfer,
         // key::PublicKey,
         token,
     },
@@ -646,14 +645,8 @@ impl Database {
                     .ok_or(Error::InvalidTxData)?;
 
                 let code_hex = hex::encode(code.as_slice());
-
-                dbg!(hex::encode(&hash_id));
-                dbg!(hex::encode(&code));
-                dbg!(&tx.sections[0].data());
-
                 let unknown_type = "unknown".to_string();
                 let type_tx = checksums_map.get(&code_hex).unwrap_or(&unknown_type);
-                dbg!(&type_tx);
                 let mut data: Vec<u8> = vec![];
                 if type_tx != "tx_bridge_pool" {
                     // "tx_bridge_pool" doesn't have their data in the data section anymore ?
