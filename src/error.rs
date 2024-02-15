@@ -24,7 +24,7 @@ pub enum Error {
     TendermintError(#[from] TError),
     #[error("Tendermint rpc_error: {0}")]
     TendermintRpcError(#[from] TRpcError),
-    #[error("Configuration error: {0}")]
+    #[error("Configuration file error: {0}")]
     Config(#[from] ConfigError),
     #[error("Configuration error: {0}")]
     IO(#[from] std::io::Error),
