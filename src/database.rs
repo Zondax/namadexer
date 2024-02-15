@@ -656,237 +656,242 @@ impl Database {
                 info!("Saving {} transaction", type_tx);
 
                 // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
-                match type_tx.as_str() {
-                    "tx_transfer" => {
-                        let transfer = token::Transfer::try_from_slice(&data[..])?;
+                // if the transaction has failed don't try to decode because the changes are not included and the data might not be correct
+                if return_code.unwrap() == 0 {
+                    match type_tx.as_str() {
+                        "tx_transfer" => {
+                            let transfer = token::Transfer::try_from_slice(&data[..])?;
 
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.tx_transfer(
-                                tx_id,
-                                source, 
-                                target, 
-                                token,
-                                amount,
-                                key,
-                                shielded
-                            )",
-                            network
-                        ));
-
-                        let query = query_builder
-                            .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(&hash_id)
-                                    .push_bind(transfer.source.to_string())
-                                    .push_bind(transfer.target.to_string())
-                                    .push_bind(transfer.token.to_string())
-                                    .push_bind(transfer.amount.to_string())
-                                    .push_bind(transfer.key.as_ref().map(|k| k.to_string()))
-                                    .push_bind(transfer.shielded.as_ref().map(|s| s.to_vec()));
-                            })
-                            .build();
-                        query.execute(&mut *sqlx_tx).await?;
-                    }
-                    "tx_bond" => {
-                        let bond = Bond::try_from_slice(&data[..])?;
-
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.tx_bond(
-                                tx_id,
-                                validator,
-                                amount,
-                                source,
-                                bond
-                            )",
-                            network
-                        ));
-
-                        let query = query_builder
-                            .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(&hash_id)
-                                    .push_bind(bond.validator.to_string())
-                                    .push_bind(bond.amount.to_string_native())
-                                    .push_bind(bond.source.as_ref().map(|s| s.to_string()))
-                                    .push_bind(true);
-                            })
-                            .build();
-                        query.execute(&mut *sqlx_tx).await?;
-                    }
-                    "tx_unbond" => {
-                        let unbond = Unbond::try_from_slice(&data[..])?;
-
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.tx_bond(
-                                tx_id,
-                                validator,
-                                amount,
-                                source,
-                                bond
-                            )",
-                            network
-                        ));
-
-                        let query = query_builder
-                            .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(&hash_id)
-                                    .push_bind(unbond.validator.to_string())
-                                    .push_bind(unbond.amount.to_string_native())
-                                    .push_bind(
-                                        unbond
-                                            .source
-                                            .as_ref()
-                                            .map_or("".to_string(), |s| s.to_string()),
-                                    )
-                                    .push_bind(false);
-                            })
-                            .build();
-                        query.execute(&mut *sqlx_tx).await?;
-                    }
-                    // this is an ethereum transaction
-                    // "tx_bridge_pool" => {
-                    //     // Only TransferToEthereum type is supported at the moment by namada and us.
-                    //     let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
-
-                    //     let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                    //         "INSERT INTO {}.tx_bridge_pool(
-                    //             tx_id,
-                    //             asset,
-                    //             recipient,
-                    //             sender,
-                    //             amount,
-                    //             gas_amount,
-                    //             payer
-                    //         )",
-                    //         network
-                    //     ));
-
-                    //     let query = query_builder
-                    //         .push_values(std::iter::once(0), |mut b, _| {
-                    //             b.push_bind(&hash_id)
-                    //                 .push_bind(tx_bridge.transfer.asset.to_string())
-                    //                 .push_bind(tx_bridge.transfer.recipient.to_string())
-                    //                 .push_bind(tx_bridge.transfer.sender.to_string())
-                    //                 .push_bind(tx_bridge.transfer.amount.to_string_native())
-                    //                 .push_bind(tx_bridge.gas_fee.amount.to_string_native())
-                    //                 .push_bind(tx_bridge.gas_fee.payer.to_string());
-                    //         })
-                    //         .build();
-                    //     query.execute(&mut *sqlx_tx).await?;
-                    // }
-                    "tx_vote_proposal" => {
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.vote_proposal(
-                                vote_proposal_id,
-                                vote,
-                                voter,
-                                tx_id
-                            )",
-                            network
-                        ));
-
-                        let tx_data = VoteProposalData::try_from_slice(&data[..])?;
-
-                        // vote_proposal_id is an u64, due to lack of support for unsigned
-                        // integers, we store it as be bytes.
-                        let proposal_id = tx_data.id.to_be_bytes();
-
-                        let query = query_builder
-                            .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(proposal_id)
-                                    .push_bind(tx_data.vote.to_string())
-                                    .push_bind(tx_data.voter.encode())
-                                    .push_bind(&hash_id);
-                            })
-                            .build();
-                        query.execute(&mut *sqlx_tx).await?;
-
-                        // now store delegators
-                        // if there are indeed delegator addresses in the list.
-                        if !tx_data.delegations.is_empty() {
                             let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                                "INSERT INTO {}.delegations(
-                                vote_proposal_id,
-                                delegator_id
-                            )",
+                                "INSERT INTO {}.tx_transfer(
+                                    tx_id,
+                                    source, 
+                                    target, 
+                                    token,
+                                    amount,
+                                    key,
+                                    shielded
+                                )",
                                 network
                             ));
 
-                            // Insert each key which would have an update_id associated to it,
-                            // allowing querying keys per updates.
-                            // this also does batch insertion
                             let query = query_builder
-                                .push_values(tx_data.delegations.iter(), |mut b, key| {
-                                    b.push_bind(proposal_id).push_bind(key.encode());
+                                .push_values(std::iter::once(0), |mut b, _| {
+                                    b.push_bind(&hash_id)
+                                        .push_bind(transfer.source.to_string())
+                                        .push_bind(transfer.target.to_string())
+                                        .push_bind(transfer.token.to_string())
+                                        .push_bind(transfer.amount.to_string())
+                                        .push_bind(transfer.key.as_ref().map(|k| k.to_string()))
+                                        .push_bind(transfer.shielded.as_ref().map(|s| s.to_vec()));
                                 })
                                 .build();
                             query.execute(&mut *sqlx_tx).await?;
                         }
-                    }
-                    "tx_reveal_pk" => {
-                        // nothing to do here, only check that data is a valid publicKey
-                        // otherwise this transaction must not make it into
-                        // the database.
-                        _ = PublicKey::try_from_slice(&data[..])?;
-                    }
-                    "tx_resign_steward" => {
-                        // Not much to do, just, check that the address this transactions
-                        // holds in the data field is correct, or at least parsed succesfully.
-                        _ = Address::try_from_slice(&data[..])?;
-                    }
-                    "tx_update_steward_commission" => {
-                        // Not much to do, just, check that the address this transactions
-                        // holds in the data field is correct, or at least parsed succesfully.
-                        _ = UpdateStewardCommission::try_from_slice(&data[..])?;
-                    }
-                    "tx_init_account" => {
-                        // check that transaction can be parsed
-                        // before inserting it into database.
-                        // later accounts could be updated using
-                        // tx_update_account, however there is not way
-                        // so far to link those transactions to this.
-                        _ = InitAccount::try_from_slice(&data[..])?;
-                    }
-                    "tx_update_account" => {
-                        // check that transaction can be parsed
-                        // before storing it into database
-                        let tx = UpdateAccount::try_from_slice(&data[..])?;
-
-                        let insert_query = format!(
-                            "INSERT INTO {}.account_updates(account_id, vp_code_hash, threshold, tx_id) 
-                                VALUES ($1, $2, $3, $4) RETURNING update_id",
-                            network
-                        );
-
-                        let update_id: i32 = sqlx::query_scalar(&insert_query)
-                            .bind(tx.addr.encode())
-                            .bind(tx.vp_code_hash.map(|hash| hash.0))
-                            .bind(tx.threshold.map(|t| t as i32))
-                            .bind(&hash_id)
-                            .fetch_one(&mut *sqlx_tx)
-                            .await?;
-
-                        // Insert only valid public_key values, omiting empty ones
-                        if !tx.public_keys.is_empty() {
-                            trace!("Storing {} public_keys", tx.public_keys.len());
+                        "tx_bond" => {
+                            let bond = Bond::try_from_slice(&data[..])?;
 
                             let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                                "INSERT INTO {}.account_public_keys(
-                                update_id,
-                                public_key
-                            )",
+                                "INSERT INTO {}.tx_bond(
+                                    tx_id,
+                                    validator,
+                                    amount,
+                                    source,
+                                    bond
+                                )",
                                 network
                             ));
 
-                            // Insert each key which would have an update_id associated to it,
-                            // allowing querying keys per updates.
                             let query = query_builder
-                                .push_values(tx.public_keys.iter(), |mut b, key| {
-                                    b.push_bind(update_id).push_bind(key.to_string());
+                                .push_values(std::iter::once(0), |mut b, _| {
+                                    b.push_bind(&hash_id)
+                                        .push_bind(bond.validator.to_string())
+                                        .push_bind(bond.amount.to_string_native())
+                                        .push_bind(bond.source.as_ref().map(|s| s.to_string()))
+                                        .push_bind(true);
                                 })
                                 .build();
                             query.execute(&mut *sqlx_tx).await?;
                         }
+                        "tx_unbond" => {
+                            let unbond = Unbond::try_from_slice(&data[..])?;
+
+                            let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                                "INSERT INTO {}.tx_bond(
+                                    tx_id,
+                                    validator,
+                                    amount,
+                                    source,
+                                    bond
+                                )",
+                                network
+                            ));
+
+                            let query = query_builder
+                                .push_values(std::iter::once(0), |mut b, _| {
+                                    b.push_bind(&hash_id)
+                                        .push_bind(unbond.validator.to_string())
+                                        .push_bind(unbond.amount.to_string_native())
+                                        .push_bind(
+                                            unbond
+                                                .source
+                                                .as_ref()
+                                                .map_or("".to_string(), |s| s.to_string()),
+                                        )
+                                        .push_bind(false);
+                                })
+                                .build();
+                            query.execute(&mut *sqlx_tx).await?;
+                        }
+                        // this is an ethereum transaction
+                        // "tx_bridge_pool" => {
+                        //     // Only TransferToEthereum type is supported at the moment by namada and us.
+                        //     let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
+
+                        //     let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                        //         "INSERT INTO {}.tx_bridge_pool(
+                        //             tx_id,
+                        //             asset,
+                        //             recipient,
+                        //             sender,
+                        //             amount,
+                        //             gas_amount,
+                        //             payer
+                        //         )",
+                        //         network
+                        //     ));
+
+                        //     let query = query_builder
+                        //         .push_values(std::iter::once(0), |mut b, _| {
+                        //             b.push_bind(&hash_id)
+                        //                 .push_bind(tx_bridge.transfer.asset.to_string())
+                        //                 .push_bind(tx_bridge.transfer.recipient.to_string())
+                        //                 .push_bind(tx_bridge.transfer.sender.to_string())
+                        //                 .push_bind(tx_bridge.transfer.amount.to_string_native())
+                        //                 .push_bind(tx_bridge.gas_fee.amount.to_string_native())
+                        //                 .push_bind(tx_bridge.gas_fee.payer.to_string());
+                        //         })
+                        //         .build();
+                        //     query.execute(&mut *sqlx_tx).await?;
+                        // }
+                        "tx_vote_proposal" => {
+                            let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                                "INSERT INTO {}.vote_proposal(
+                                    vote_proposal_id,
+                                    vote,
+                                    voter,
+                                    tx_id
+                                )",
+                                network
+                            ));
+
+                            let tx_data = VoteProposalData::try_from_slice(&data[..])?;
+
+                            // vote_proposal_id is an u64, due to lack of support for unsigned
+                            // integers, we store it as be bytes.
+                            let proposal_id = tx_data.id.to_be_bytes();
+
+                            let query = query_builder
+                                .push_values(std::iter::once(0), |mut b, _| {
+                                    b.push_bind(proposal_id)
+                                        .push_bind(tx_data.vote.to_string())
+                                        .push_bind(tx_data.voter.encode())
+                                        .push_bind(&hash_id);
+                                })
+                                .build();
+                            query.execute(&mut *sqlx_tx).await?;
+
+                            // now store delegators
+                            // if there are indeed delegator addresses in the list.
+                            if !tx_data.delegations.is_empty() {
+                                let mut query_builder: QueryBuilder<_> =
+                                    QueryBuilder::new(format!(
+                                        "INSERT INTO {}.delegations(
+                                    vote_proposal_id,
+                                    delegator_id
+                                )",
+                                        network
+                                    ));
+
+                                // Insert each key which would have an update_id associated to it,
+                                // allowing querying keys per updates.
+                                // this also does batch insertion
+                                let query = query_builder
+                                    .push_values(tx_data.delegations.iter(), |mut b, key| {
+                                        b.push_bind(proposal_id).push_bind(key.encode());
+                                    })
+                                    .build();
+                                query.execute(&mut *sqlx_tx).await?;
+                            }
+                        }
+                        "tx_reveal_pk" => {
+                            // nothing to do here, only check that data is a valid publicKey
+                            // otherwise this transaction must not make it into
+                            // the database.
+                            _ = PublicKey::try_from_slice(&data[..])?;
+                        }
+                        "tx_resign_steward" => {
+                            // Not much to do, just, check that the address this transactions
+                            // holds in the data field is correct, or at least parsed succesfully.
+                            _ = Address::try_from_slice(&data[..])?;
+                        }
+                        "tx_update_steward_commission" => {
+                            // Not much to do, just, check that the address this transactions
+                            // holds in the data field is correct, or at least parsed succesfully.
+                            _ = UpdateStewardCommission::try_from_slice(&data[..])?;
+                        }
+                        "tx_init_account" => {
+                            // check that transaction can be parsed
+                            // before inserting it into database.
+                            // later accounts could be updated using
+                            // tx_update_account, however there is not way
+                            // so far to link those transactions to this.
+                            _ = InitAccount::try_from_slice(&data[..])?;
+                        }
+                        "tx_update_account" => {
+                            // check that transaction can be parsed
+                            // before storing it into database
+                            let tx = UpdateAccount::try_from_slice(&data[..])?;
+
+                            let insert_query = format!(
+                                "INSERT INTO {}.account_updates(account_id, vp_code_hash, threshold, tx_id) 
+                                    VALUES ($1, $2, $3, $4) RETURNING update_id",
+                                network
+                            );
+
+                            let update_id: i32 = sqlx::query_scalar(&insert_query)
+                                .bind(tx.addr.encode())
+                                .bind(tx.vp_code_hash.map(|hash| hash.0))
+                                .bind(tx.threshold.map(|t| t as i32))
+                                .bind(&hash_id)
+                                .fetch_one(&mut *sqlx_tx)
+                                .await?;
+
+                            // Insert only valid public_key values, omiting empty ones
+                            if !tx.public_keys.is_empty() {
+                                trace!("Storing {} public_keys", tx.public_keys.len());
+
+                                let mut query_builder: QueryBuilder<_> =
+                                    QueryBuilder::new(format!(
+                                        "INSERT INTO {}.account_public_keys(
+                                    update_id,
+                                    public_key
+                                )",
+                                        network
+                                    ));
+
+                                // Insert each key which would have an update_id associated to it,
+                                // allowing querying keys per updates.
+                                let query = query_builder
+                                    .push_values(tx.public_keys.iter(), |mut b, key| {
+                                        b.push_bind(update_id).push_bind(key.to_string());
+                                    })
+                                    .build();
+                                query.execute(&mut *sqlx_tx).await?;
+                            }
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
 
