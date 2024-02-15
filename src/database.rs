@@ -804,13 +804,14 @@ impl Database {
                             // now store delegators
                             // if there are indeed delegator addresses in the list.
                             if !tx_data.delegations.is_empty() {
-                                let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                                    "INSERT INTO {}.delegations(
+                                let mut query_builder: QueryBuilder<_> =
+                                    QueryBuilder::new(format!(
+                                        "INSERT INTO {}.delegations(
                                     vote_proposal_id,
                                     delegator_id
                                 )",
-                                    network
-                                ));
+                                        network
+                                    ));
 
                                 // Insert each key which would have an update_id associated to it,
                                 // allowing querying keys per updates.
@@ -870,13 +871,14 @@ impl Database {
                             if !tx.public_keys.is_empty() {
                                 trace!("Storing {} public_keys", tx.public_keys.len());
 
-                                let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                                    "INSERT INTO {}.account_public_keys(
+                                let mut query_builder: QueryBuilder<_> =
+                                    QueryBuilder::new(format!(
+                                        "INSERT INTO {}.account_public_keys(
                                     update_id,
                                     public_key
                                 )",
-                                    network
-                                ));
+                                        network
+                                    ));
 
                                 // Insert each key which would have an update_id associated to it,
                                 // allowing querying keys per updates.
