@@ -8,7 +8,9 @@ pub mod tables;
 mod telemetry;
 pub mod utils;
 
-pub use crate::config::{IndexerConfig, JaegerConfig, PrometheusConfig, ServerConfig, Settings};
+pub use crate::config::{
+    IndexerConfig, JaegerConfig, LogFormat, PrometheusConfig, ServerConfig, Settings,
+};
 pub use database::Database;
 pub use error::Error;
 pub use indexer::start_indexing;
