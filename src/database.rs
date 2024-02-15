@@ -653,8 +653,7 @@ impl Database {
                 // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
                 // if the transaction has failed don't try to decode because the changes are not included and the data might not be correct
                 if return_code.unwrap() == 0 {
-                    let mut data: Vec<u8> = vec![];
-                    data = tx.data().ok_or(Error::InvalidTxData)?;
+                    let data = tx.data().ok_or(Error::InvalidTxData)?;
 
                     match type_tx.as_str() {
                         "tx_transfer" => {
