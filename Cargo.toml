@@ -15,7 +15,7 @@ path = "src/bin/indexer.rs"
 [dependencies]
 getrandom = { version = "0.2" }
 async-trait = "0.1.51"
-namada_sdk = { git = "https://github.com/anoma/namada", rev = "v0.31.0" }
+namada_sdk = { git = "https://github.com/anoma/namada", rev = "v0.31.4" }
 rand = { version = "0.8", default-features = false }
 rand_core = { version = "0.6", default-features = false }
 tokio = { version = "1.26.0", features = ["rt-multi-thread"] }

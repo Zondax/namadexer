@@ -6,6 +6,7 @@ host = "localhost"
 user = "postgres"
 password = "wow"
 dbname = "blockchain"
+port = 5432
 # Optional field to configure a timeout if database connection 
 # fails.
 connection_timeout = 20

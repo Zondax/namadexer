@@ -16,7 +16,9 @@ host = "localhost"
 user = "postgres"
 password = "wow"
 dbname = "blockchain"
-
+port = 5432
+connection_timeout = 20 # Optional timeout value
+create_index = true
 
 [server]
 serve_at = "0.0.0.0"
@@ -79,5 +81,5 @@ $ curl -H 'Content-Type: application/json' localhost:30303/tx/shielded
 This endpoint will look for a vote proposal identified by proposal_id(integer)
 
 ```
-$ curl -H 'Content-Type: application/json' localhost:30303/tx/shielded
+$ curl -H 'Content-Type: application/json' localhost:30303/tx/vote_proposal/1
 ```

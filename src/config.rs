@@ -37,11 +37,16 @@ pub struct DatabaseConfig {
     pub user: String,
     pub password: String,
     pub dbname: String,
+    #[serde(default = "default_db_port")]
     pub port: u16,
     // The limit in seconds to wait for a ready database connection
     pub connection_timeout: Option<u64>,
     //  Give the option to skip the index creation
     pub create_index: bool,
+}
+
+const fn default_db_port() -> u16 {
+    5432
 }
 
 #[derive(Debug, Deserialize)]
@@ -263,5 +268,33 @@ impl Settings {
 
     pub fn prometheus_config(&self) -> &PrometheusConfig {
         &self.prometheus
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use config::{Config, File};
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_settings_deserialization() {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("config/Settings.example.toml");
+
+        assert!(
+            d.exists(),
+            "Settings.example.toml file does not exist at {:?}",
+            d
+        );
+
+        let config = Config::builder()
+            .add_source(File::from(d))
+            .build()
+            .expect("Failed to build config");
+
+        let _: Settings = config
+            .try_deserialize()
+            .expect("Failed to deserialize Settings.example.toml into the Settings struct");
     }
 }
