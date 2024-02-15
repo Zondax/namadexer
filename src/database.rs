@@ -17,7 +17,6 @@ use namada_sdk::{
     },
     types::{
         address::Address,
-        eth_bridge_pool::PendingTransfer,
         // key::PublicKey,
         token,
     },
@@ -67,10 +66,10 @@ pub struct Database {
 impl Database {
     pub async fn new(db_config: &DatabaseConfig, network: &str) -> Result<Database, Error> {
         // sqlx expects config of the form:
-        // postgres://user:password@host/db_name
+        // postgres://user:password@host:port/db_name
         let config = format!(
-            "postgres://{}:{}@{}/{}",
-            db_config.user, db_config.password, db_config.host, db_config.dbname
+            "postgres://{}:{}@{}:{}/{}",
+            db_config.user, db_config.password, db_config.host, db_config.port, db_config.dbname
         );
 
         // If timeout setting is not present in the provided configuration,
@@ -171,7 +170,7 @@ impl Database {
 
     /// Inner implementation that uses a postgres-transaction
     /// to ensure database coherence.
-    #[instrument(skip(block, checksums_map, sqlx_tx))]
+    #[instrument(skip(block, block_results, checksums_map, sqlx_tx))]
     async fn save_block_impl<'a>(
         block: &Block,
         block_results: &block_results::Response,
@@ -281,7 +280,7 @@ impl Database {
     }
 
     /// Save a block and commit database
-    #[instrument(skip(self, block, checksums_map))]
+    #[instrument(skip(self, block, block_results, checksums_map))]
     pub async fn save_block(
         &self,
         block: &Block,
@@ -429,7 +428,7 @@ impl Database {
     /// It is up to the caller to commit the operation.
     /// this method is meant to be used when caller is saving
     /// many blocks, and can commit after it.
-    #[instrument(skip(block, checksums_map, sqlx_tx, network))]
+    #[instrument(skip(block, block_results, checksums_map, sqlx_tx, network))]
     pub async fn save_block_tx<'a>(
         block: &Block,
         block_results: &block_results::Response,
@@ -549,7 +548,7 @@ impl Database {
     /// Save all the transactions in txs, it is up to the caller to
     /// call sqlx_tx.commit().await?; for the changes to take place in
     /// database.
-    #[instrument(skip(txs, block_id, sqlx_tx, checksums_map, network))]
+    #[instrument(skip(txs, block_id, sqlx_tx, checksums_map, block_results, network))]
     async fn save_transactions<'a>(
         txs: &[Vec<u8>],
         block_id: &[u8],
@@ -656,12 +655,15 @@ impl Database {
                     .ok_or(Error::InvalidTxData)?;
 
                 let code_hex = hex::encode(code.as_slice());
-
                 let unknown_type = "unknown".to_string();
                 let type_tx = checksums_map.get(&code_hex).unwrap_or(&unknown_type);
                 code_type = type_tx.to_string();
 
-                let data = tx.data().ok_or(Error::InvalidTxData)?;
+                let mut data: Vec<u8> = vec![];
+                if type_tx != "tx_bridge_pool" {
+                    // "tx_bridge_pool" doesn't have their data in the data section anymore ?
+                    data = tx.data().ok_or(Error::InvalidTxData)?;
+                }
 
                 info!("Saving {} transaction", type_tx);
 
@@ -752,36 +754,36 @@ impl Database {
                         query.execute(&mut *sqlx_tx).await?;
                     }
                     // this is an ethereum transaction
-                    "tx_bridge_pool" => {
-                        // Only TransferToEthereum type is supported at the moment by namada and us.
-                        let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
+                    // "tx_bridge_pool" => {
+                    //     // Only TransferToEthereum type is supported at the moment by namada and us.
+                    //     let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
 
-                        let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                            "INSERT INTO {}.tx_bridge_pool(
-                                tx_id,
-                                asset,
-                                recipient,
-                                sender,
-                                amount,
-                                gas_amount,
-                                payer
-                            )",
-                            network
-                        ));
+                    //     let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                    //         "INSERT INTO {}.tx_bridge_pool(
+                    //             tx_id,
+                    //             asset,
+                    //             recipient,
+                    //             sender,
+                    //             amount,
+                    //             gas_amount,
+                    //             payer
+                    //         )",
+                    //         network
+                    //     ));
 
-                        let query = query_builder
-                            .push_values(std::iter::once(0), |mut b, _| {
-                                b.push_bind(&hash_id)
-                                    .push_bind(tx_bridge.transfer.asset.to_string())
-                                    .push_bind(tx_bridge.transfer.recipient.to_string())
-                                    .push_bind(tx_bridge.transfer.sender.to_string())
-                                    .push_bind(tx_bridge.transfer.amount.to_string_native())
-                                    .push_bind(tx_bridge.gas_fee.amount.to_string_native())
-                                    .push_bind(tx_bridge.gas_fee.payer.to_string());
-                            })
-                            .build();
-                        query.execute(&mut *sqlx_tx).await?;
-                    }
+                    //     let query = query_builder
+                    //         .push_values(std::iter::once(0), |mut b, _| {
+                    //             b.push_bind(&hash_id)
+                    //                 .push_bind(tx_bridge.transfer.asset.to_string())
+                    //                 .push_bind(tx_bridge.transfer.recipient.to_string())
+                    //                 .push_bind(tx_bridge.transfer.sender.to_string())
+                    //                 .push_bind(tx_bridge.transfer.amount.to_string_native())
+                    //                 .push_bind(tx_bridge.gas_fee.amount.to_string_native())
+                    //                 .push_bind(tx_bridge.gas_fee.payer.to_string());
+                    //         })
+                    //         .build();
+                    //     query.execute(&mut *sqlx_tx).await?;
+                    // }
                     "tx_vote_proposal" => {
                         let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
                             "INSERT INTO {}.vote_proposal(
@@ -1474,6 +1476,22 @@ impl Database {
             .bind(start)
             .bind(end)
             .fetch_one(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
+    #[instrument(skip(self))]
+    /// Returns the latest block, otherwise returns an Error.
+    pub async fn get_lastest_blocks(
+        &self,
+        num: &i32,
+        offset: Option<&i32>,
+    ) -> Result<Vec<Row>, Error> {
+        let str = format!("SELECT * FROM {0}.{BLOCKS_TABLE_NAME} ORDER BY header_height DESC LIMIT {1} OFFSET {2};", self.network, num, offset.unwrap_or(&  0));
+
+        // use query_one as the row matching max height is unique.
+        query(&str)
+            .fetch_all(&*self.pool)
             .await
             .map_err(Error::from)
     }

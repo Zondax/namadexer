@@ -20,7 +20,7 @@ impl TryFrom<&Vec<Row>> for ShieldedAssetsResponse {
             let token: String = row.try_get("token")?;
 
             let amount_str: &str = row.try_get("amount")?;
-            let amount: u64 = amount_str.parse::<u64>()?;
+            let amount: f64 = amount_str.parse::<f64>()?;
 
             let target: String = row.try_get("target")?;
             let source: String = row.try_get("source")?;
@@ -32,7 +32,7 @@ impl TryFrom<&Vec<Row>> for ShieldedAssetsResponse {
 
                 let mut total = match shielded_assets.get(&token) {
                     Some(v) => *v,
-                    None => 0,
+                    None => 0.0,
                 };
 
                 if target == MASP_ADDR {
@@ -49,4 +49,4 @@ impl TryFrom<&Vec<Row>> for ShieldedAssetsResponse {
     }
 }
 
-pub type ShieldedAssets = HashMap<String, u64>;
+pub type ShieldedAssets = HashMap<String, f64>;

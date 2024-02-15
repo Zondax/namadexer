@@ -22,5 +22,4 @@ const DB_SAVE_TXS_DURATION: &str = "db_save_transactions_duration";
 const DB_SAVE_EVDS_DURATION: &str = "db_save_evidences_duration";
 const DB_SAVE_COMMIT_SIG_DURATION: &str = "db_save_commit_sig_duration";
 
-pub const MASP_ADDR: &str =
-    "atest1v4ehgw36xaryysfsx5unvve4g5my2vjz89p52sjxxgenzd348yuyyv3hg3pnjs35g5unvde4ca36y5";
+pub const MASP_ADDR: &str = "tnam1pcqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqzmefah";
