@@ -112,7 +112,7 @@ impl TxInfo {
     pub fn decode_tx(&mut self, checksums: &HashMap<String, String>) -> Result<(), Error> {
         if self.is_decrypted() {
             let Some(type_tx) = checksums.get(&self.code()) else {
-                return Err(Error::InvalidTxData);
+                return Err(Error::InvalidTxData("failed to get checksum".into()));
             };
 
             let decoded = match type_tx.as_str() {
@@ -151,7 +151,10 @@ impl TxInfo {
                     PendingTransfer::try_from_slice(&self.data()).map(TxDecoded::EthPoolBridge)?
                 }
                 _ => {
-                    return Err(Error::InvalidTxData);
+                    return Err(Error::InvalidTxData(format!(
+                        "unsupported type_tx {}",
+                        type_tx
+                    )));
                 }
             };
 
@@ -159,11 +162,11 @@ impl TxInfo {
 
             return Ok(());
         }
-        Err(Error::InvalidTxData)
+        Err(Error::InvalidTxData("tx is not decrypted".into()))
     }
 
     fn decode_ibc(tx_data: &[u8]) -> Result<IbcTx, Error> {
-        let msg = Any::decode(tx_data).map_err(|_| Error::InvalidTxData)?;
+        let msg = Any::decode(tx_data).map_err(|e| Error::InvalidTxData(e.to_string()))?;
         if msg.type_url.as_str() == MSG_TRANSFER_TYPE_URL
             && MsgTransfer::try_from(msg.clone()).is_ok()
         {
