@@ -647,17 +647,14 @@ impl Database {
                 let code_hex = hex::encode(code.as_slice());
                 let unknown_type = "unknown".to_string();
                 let type_tx = checksums_map.get(&code_hex).unwrap_or(&unknown_type);
-                let mut data: Vec<u8> = vec![];
-                if type_tx != "tx_bridge_pool" {
-                    // "tx_bridge_pool" doesn't have their data in the data section anymore ?
-                    data = tx.data().ok_or(Error::InvalidTxData)?;
-                }
 
                 info!("Saving {} transaction", type_tx);
 
                 // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
                 // if the transaction has failed don't try to decode because the changes are not included and the data might not be correct
                 if return_code.unwrap() == 0 {
+                    let data = tx.data().ok_or(Error::InvalidTxData)?;
+
                     match type_tx.as_str() {
                         "tx_transfer" => {
                             let transfer = token::Transfer::try_from_slice(&data[..])?;
