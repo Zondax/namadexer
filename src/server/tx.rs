@@ -63,21 +63,29 @@ pub enum IbcTx {
 /// The relevant information regarding transactions and their types.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct TxInfo {
+    /// The hash that idenfities this transaction
     #[serde(with = "hex::serde")]
     hash: Vec<u8>,
+    /// The block this transaction belongs to.
     #[serde(with = "hex::serde")]
     block_id: Vec<u8>,
+    /// The transaction type encoded as a string
     tx_type: String,
+    /// id for the wrapper tx if the tx is decrypted. otherwise it is null.
     #[serde(with = "hex::serde")]
     wrapper_id: Vec<u8>,
+    /// The transaction fee only for tx_type Wrapper (otherwise empty)
     fee_amount_per_gas_unit: Option<String>,
     fee_token: Option<String>,
+    /// Gas limit (only for Wrapper tx)
     gas_limit_multiplier: Option<i64>,
+    /// The transaction code. Match what is in the checksum.js
     #[serde(serialize_with = "serialize_optional_hex")]
     code: Option<Vec<u8>>,
     #[serde(serialize_with = "serialize_optional_hex")]
     data: Option<Vec<u8>>,
     return_code: Option<i32>, // New field for return_code
+    /// Inner transaction type
     tx: Option<TxDecoded>,
 }
 
