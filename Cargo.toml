@@ -25,6 +25,7 @@ bytes = "1.0"
 time = "0.3"
 tracing-subscriber = { version = "0.3.17", features = [
     "fmt",
+    "json",
     "std",
     "env-filter",
 ] }
