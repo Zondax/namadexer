@@ -1,4 +1,5 @@
 log_level = "info"
+log_format = "pretty"
 network = "public-testnet-15"
 
 [database]

@@ -88,6 +88,7 @@ pub struct TxInfo {
     data: Option<Vec<u8>>,
     #[serde(serialize_with = "serialize_optional_hex")]
     memo: Option<Vec<u8>>,
+    return_code: Option<i32>, // New field for return_code
     /// Inner transaction type
     tx: Option<TxDecoded>,
     /// Inner block info
@@ -118,7 +119,7 @@ impl TxInfo {
     pub fn decode_tx(&mut self, checksums: &HashMap<String, String>) -> Result<(), Error> {
         if self.is_decrypted() {
             let Some(type_tx) = checksums.get(&self.code()) else {
-                return Err(Error::InvalidTxData);
+                return Err(Error::InvalidTxData("failed to get checksum".into()));
             };
 
             let decoded = match type_tx.as_str() {
@@ -157,7 +158,10 @@ impl TxInfo {
                     PendingTransfer::try_from_slice(&self.data()).map(TxDecoded::EthPoolBridge)?
                 }
                 _ => {
-                    return Err(Error::InvalidTxData);
+                    return Err(Error::InvalidTxData(format!(
+                        "unsupported type_tx {}",
+                        type_tx
+                    )));
                 }
             };
 
@@ -165,11 +169,11 @@ impl TxInfo {
 
             return Ok(());
         }
-        Err(Error::InvalidTxData)
+        Err(Error::InvalidTxData("tx is not decrypted".into()))
     }
 
     fn decode_ibc(tx_data: &[u8]) -> Result<IbcTx, Error> {
-        let msg = Any::decode(tx_data).map_err(|_| Error::InvalidTxData)?;
+        let msg = Any::decode(tx_data).map_err(|e| Error::InvalidTxData(e.to_string()))?;
         if msg.type_url.as_str() == MSG_TRANSFER_TYPE_URL
             && MsgTransfer::try_from(msg.clone()).is_ok()
         {
@@ -197,6 +201,7 @@ impl TryFrom<Row> for TxInfo {
         let code: Option<Vec<u8>> = row.try_get("code")?;
         let data: Option<Vec<u8>> = row.try_get("data")?;
         let memo: Option<Vec<u8>> = row.try_get("memo")?;
+        let return_code = row.try_get("return_code")?;
 
         Ok(Self {
             hash,
@@ -210,8 +215,9 @@ impl TryFrom<Row> for TxInfo {
             code,
             data,
             memo,
+            return_code, // Assigning return_code to the struct field
             tx: None,
-            block: None
+            block: None,
         })
     }
 }

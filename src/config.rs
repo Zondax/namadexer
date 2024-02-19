@@ -20,6 +20,8 @@ pub const PROMETHEUS_PORT: u16 = 9000;
 
 pub const DEFAULT_NETWORK: &str = "public-testnet-15";
 
+pub const DEFAULT_LOG_FORMAT: &str = "pretty";
+
 #[derive(Debug, Deserialize)]
 pub struct IndexerConfig {
     pub tendermint_addr: String,
@@ -125,10 +127,20 @@ impl Default for DatabaseConfig {
     }
 }
 
+#[derive(Debug, Default, Deserialize, Clone, clap::ValueEnum)]
+#[serde(rename_all = "kebab-case")]
+pub enum LogFormat {
+    Json,
+    #[default]
+    Pretty,
+}
+
 #[derive(Debug, Deserialize, clap::Parser)]
 pub struct CliSettings {
     #[clap(long, env, default_value = "")]
     pub log_level: String,
+    #[clap(long, env, default_value = DEFAULT_LOG_FORMAT)]
+    pub log_format: LogFormat,
     #[clap(long, env, default_value = DEFAULT_NETWORK)]
     pub network: String,
     #[clap(long, env, default_value = SERVER_ADDR)]
@@ -166,6 +178,8 @@ pub struct CliSettings {
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     pub log_level: String,
+    #[serde(default)]
+    pub log_format: LogFormat,
     pub network: String,
     pub database: DatabaseConfig,
     pub server: ServerConfig,
@@ -178,6 +192,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             log_level: Default::default(),
+            log_format: Default::default(),
             network: DEFAULT_NETWORK.to_string(),
             database: Default::default(),
             server: Default::default(),
@@ -192,6 +207,7 @@ impl From<CliSettings> for Settings {
     fn from(value: CliSettings) -> Self {
         Self {
             log_level: value.log_level,
+            log_format: value.log_format,
             network: value.network,
             database: DatabaseConfig {
                 host: value.database_host,
