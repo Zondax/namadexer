@@ -84,6 +84,7 @@ pub struct TxInfo {
     code: Option<Vec<u8>>,
     #[serde(serialize_with = "serialize_optional_hex")]
     data: Option<Vec<u8>>,
+    return_code: Option<i32>, // New field for return_code
     /// Inner transaction type
     tx: Option<TxDecoded>,
 }
@@ -189,9 +190,10 @@ impl TryFrom<Row> for TxInfo {
         let gas_limit_multiplier = row.try_get("gas_limit_multiplier")?;
         let code: Option<Vec<u8>> = row.try_get("code")?;
         let data: Option<Vec<u8>> = row.try_get("data")?;
+        let return_code = row.try_get("return_code")?; 
 
         Ok(Self {
-            hash,
+             hash,
             block_id,
             tx_type,
             wrapper_id,
@@ -200,6 +202,7 @@ impl TryFrom<Row> for TxInfo {
             gas_limit_multiplier,
             code,
             data,
+            return_code, // Assigning return_code to the struct field
             tx: None,
         })
     }
