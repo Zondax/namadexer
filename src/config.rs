@@ -18,7 +18,7 @@ pub const JAEGER_PORT: u16 = 6831;
 pub const PROMETHEUS_HOST: &str = "localhost";
 pub const PROMETHEUS_PORT: u16 = 9000;
 
-pub const DEFAULT_NETWORK: &str = "public-testnet-15";
+pub const DEFAULT_CHAIN_NAME: &str = "public-testnet-15";
 
 pub const DEFAULT_LOG_FORMAT: &str = "pretty";
 
@@ -141,8 +141,8 @@ pub struct CliSettings {
     pub log_level: String,
     #[clap(long, env, default_value = DEFAULT_LOG_FORMAT)]
     pub log_format: LogFormat,
-    #[clap(long, env, default_value = DEFAULT_NETWORK)]
-    pub network: String,
+    #[clap(long, env, default_value = DEFAULT_CHAIN_NAME)]
+    pub chain_name: String,
     #[clap(long, env, default_value = SERVER_ADDR)]
     pub server_serve_at: String,
     #[clap(long, env, default_value_t = SERVER_PORT)]
@@ -180,7 +180,7 @@ pub struct Settings {
     pub log_level: String,
     #[serde(default)]
     pub log_format: LogFormat,
-    pub network: String,
+    pub chain_name: String,
     pub database: DatabaseConfig,
     pub server: ServerConfig,
     pub indexer: IndexerConfig,
@@ -193,7 +193,7 @@ impl Default for Settings {
         Self {
             log_level: Default::default(),
             log_format: Default::default(),
-            network: DEFAULT_NETWORK.to_string(),
+            chain_name: DEFAULT_CHAIN_NAME.to_string(),
             database: Default::default(),
             server: Default::default(),
             indexer: Default::default(),
@@ -208,7 +208,7 @@ impl From<CliSettings> for Settings {
         Self {
             log_level: value.log_level,
             log_format: value.log_format,
-            network: value.network,
+            chain_name: value.chain_name,
             database: DatabaseConfig {
                 host: value.database_host,
                 user: value.database_user,
@@ -252,9 +252,9 @@ impl Settings {
 
             let settings: Self = config.try_deserialize().map_err(Error::from)?;
 
-            // verify if network is correct
-            if settings.network.contains('.') {
-                panic!("network cannot contains '.' (example of valid network 'public-testnet-14')")
+            // verify if chain_name is correct
+            if settings.chain_name.contains('.') {
+                panic!("chain_name cannot contains '.' (example of valid chain_name 'public-testnet-14')")
             }
 
             return Ok(settings);
