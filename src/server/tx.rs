@@ -5,10 +5,10 @@ use namada_sdk::types::key::common::PublicKey;
 use namada_sdk::{
     account::{InitAccount, UpdateAccount},
     borsh::BorshDeserialize,
-    governance::{VoteProposalData, InitProposalData},
+    governance::{InitProposalData, VoteProposalData},
     tx::data::{
         pgf::UpdateStewardCommission,
-        pos::{Bond, Unbond, Withdraw, ConsensusKeyChange, CommissionChange, MetaDataChange},
+        pos::{Bond, CommissionChange, ConsensusKeyChange, MetaDataChange, Unbond, Withdraw},
     },
     types::token,
     types::{address::Address, eth_bridge_pool::PendingTransfer},
@@ -53,7 +53,7 @@ pub enum TxDecoded {
     DeactivateValidator(Address),
     InitProposal(InitProposalData),
     ReactivateValidator(Address),
-    UnjailValidator(Address)
+    UnjailValidator(Address),
 }
 
 // we have a variant for MsgTransfer, but there are other message types
@@ -160,16 +160,32 @@ impl TxInfo {
                 "tx_bridge_pool" => {
                     PendingTransfer::try_from_slice(&self.data()).map(TxDecoded::EthPoolBridge)?
                 }
-                "tx_become_validator" => { BecomeValidator::try_from_slice(&self.data()).map(TxDecoded::BecomeValidator)? }
-                "tx_change_consensus_key" => { ConsensusKeyChange::try_from_slice(&self.data()).map(TxDecoded::ConsensusKeyChange)? }
-                "tx_change_validator_commission" => { CommissionChange::try_from_slice(&self.data()).map(TxDecoded::CommissionChange)? }
-                "tx_change_validator_metadata" => { MetaDataChange::try_from_slice(&self.data()).map(TxDecoded::MetaDataChange)? }
-                "tx_claim_rewards" => { Withdraw::try_from_slice(&self.data()).map(TxDecoded::ClaimRewards)? }
-                "tx_deactivate_validator" => { Address::try_from_slice(&self.data()).map(TxDecoded::DeactivateValidator)? }
-                "tx_init_proposal" => { InitProposalData::try_from_slice(&self.data()).map(TxDecoded::InitProposal)? }
-                "tx_reactivate_validator" => { Address::try_from_slice(&self.data()).map(TxDecoded::ReactivateValidator)? }
-                "tx_unjail_validator" => { Address::try_from_slice(&self.data()).map(TxDecoded::UnjailValidator)? }
-                
+                "tx_become_validator" => {
+                    BecomeValidator::try_from_slice(&self.data()).map(TxDecoded::BecomeValidator)?
+                }
+                "tx_change_consensus_key" => ConsensusKeyChange::try_from_slice(&self.data())
+                    .map(TxDecoded::ConsensusKeyChange)?,
+                "tx_change_validator_commission" => CommissionChange::try_from_slice(&self.data())
+                    .map(TxDecoded::CommissionChange)?,
+                "tx_change_validator_metadata" => {
+                    MetaDataChange::try_from_slice(&self.data()).map(TxDecoded::MetaDataChange)?
+                }
+                "tx_claim_rewards" => {
+                    Withdraw::try_from_slice(&self.data()).map(TxDecoded::ClaimRewards)?
+                }
+                "tx_deactivate_validator" => {
+                    Address::try_from_slice(&self.data()).map(TxDecoded::DeactivateValidator)?
+                }
+                "tx_init_proposal" => {
+                    InitProposalData::try_from_slice(&self.data()).map(TxDecoded::InitProposal)?
+                }
+                "tx_reactivate_validator" => {
+                    Address::try_from_slice(&self.data()).map(TxDecoded::ReactivateValidator)?
+                }
+                "tx_unjail_validator" => {
+                    Address::try_from_slice(&self.data()).map(TxDecoded::UnjailValidator)?
+                }
+
                 _ => {
                     return Err(Error::InvalidTxData(format!(
                         "unsupported type_tx {}",
