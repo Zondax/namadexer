@@ -14,9 +14,11 @@ use crate::error::Error;
 use crate::utils::load_checksums;
 
 pub mod blocks;
+pub mod proposal_details;
 pub mod tx;
 pub mod tx_details;
 pub use blocks::BlockInfo;
+pub use proposal_details::ProposalDetails;
 pub use tx::TxInfo;
 pub use tx_details::TxDetails;
 pub mod account;
@@ -28,9 +30,10 @@ pub(crate) use utils::{from_hex, serialize_hex};
 use self::endpoints::{
     account::get_account_updates,
     block::{get_block_by_hash, get_block_by_height, get_last_block},
+    proposal::{get_proposal, get_proposals},
+    stats::get_stats,
     transaction::{get_shielded_tx, get_tx_by_hash, get_tx_by_memo, get_vote_proposal},
     validator::get_validator_uptime,
-    stats::get_stats,
 };
 
 pub const HTTP_DURATION_SECONDS_BUCKETS: &[f64; 11] = &[
@@ -54,6 +57,9 @@ fn server_routes(state: ServerState) -> Router<()> {
         .route("/tx_by_memo/:memo", get(get_tx_by_memo))
         .route("/account/updates/:account_id", get(get_account_updates))
         .route("/stats", get(get_stats))
+        // Proposals
+        .route("/proposals", get(get_proposals))
+        .route("/proposal/:id", get(get_proposal))
         .route(
             "/validator/:validator_address/uptime",
             get(get_validator_uptime),

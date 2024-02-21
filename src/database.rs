@@ -1325,16 +1325,14 @@ impl Database {
     }
 
     #[instrument(skip(self))]
-    /// Return proposals that don't have content
-    pub async fn get_proposals_without_content(&self) -> Result<Vec<Row>, Error> {
-        let str = format!(
-            "SELECT * FROM {}.proposals WHERE content is null",
-            self.network
-        );
+    /// Return proposal by id
+    pub async fn get_proposal(&self, id: &i32) -> Result<Option<Row>, Error> {
+        let str = format!("SELECT * FROM {}.proposals WHERE id = $1", self.network);
 
         // use query_one as the row matching max height is unique.
         query(&str)
-            .fetch_all(&*self.pool)
+            .bind(id)
+            .fetch_optional(&*self.pool)
             .await
             .map_err(Error::from)
     }
