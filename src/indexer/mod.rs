@@ -251,8 +251,10 @@ pub async fn start_indexing(
 
         current_height += 1;
 
-        // We query proposal at the end of every block
-        index_proposals(&config, db.clone()).await?;
+        // We query proposal every 1000 blocks
+        if current_height % 100 == 0 {
+            index_proposals(&config, db.clone()).await?;
+        }
     }
 
     // propagate any error from the block producer
