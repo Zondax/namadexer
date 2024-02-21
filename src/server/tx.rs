@@ -160,9 +160,8 @@ impl TxInfo {
                 "tx_bridge_pool" => {
                     PendingTransfer::try_from_slice(&self.data()).map(TxDecoded::EthPoolBridge)?
                 }
-                "tx_become_validator" => {
-                    BecomeValidator::try_from_slice(&self.data()).map(|t| TxDecoded::InitValidator(Box::new(t)))?
-                }
+                "tx_become_validator" => BecomeValidator::try_from_slice(&self.data())
+                    .map(|t| TxDecoded::InitValidator(Box::new(t)))?,
                 "tx_change_consensus_key" => ConsensusKeyChange::try_from_slice(&self.data())
                     .map(TxDecoded::ConsensusKeyChange)?,
                 "tx_change_validator_commission" => CommissionChange::try_from_slice(&self.data())
