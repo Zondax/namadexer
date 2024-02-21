@@ -45,7 +45,7 @@ pub enum TxDecoded {
     UpdateStewardCommission(UpdateStewardCommission),
     EthPoolBridge(PendingTransfer),
     Ibc(IbcTx),
-    BecomeValidator(BecomeValidator),
+    BecomeValidator(Box<BecomeValidator>),
     ConsensusKeyChange(ConsensusKeyChange),
     CommissionChange(CommissionChange),
     MetaDataChange(MetaDataChange),
@@ -161,7 +161,7 @@ impl TxInfo {
                     PendingTransfer::try_from_slice(&self.data()).map(TxDecoded::EthPoolBridge)?
                 }
                 "tx_become_validator" => {
-                    BecomeValidator::try_from_slice(&self.data()).map(TxDecoded::BecomeValidator)?
+                    BecomeValidator::try_from_slice(&self.data()).map(|t| TxDecoded::InitValidator(Box::new(t)))?
                 }
                 "tx_change_consensus_key" => ConsensusKeyChange::try_from_slice(&self.data())
                     .map(TxDecoded::ConsensusKeyChange)?,
