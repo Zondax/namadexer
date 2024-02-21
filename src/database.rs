@@ -601,7 +601,7 @@ impl Database {
             let tx = Tx::try_from(t.as_slice()).map_err(|e| Error::InvalidTxData(e.to_string()))?;
 
             let mut code: [u8; 32] = Default::default();
-            let mut code_type: String = "wrapper".to_string();
+            let mut code_type: String = "unknown".to_string();
 
             let mut txid_wrapper: Vec<u8> = vec![];
 
