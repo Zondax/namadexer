@@ -10,7 +10,7 @@ async fn main() -> Result<(), Error> {
 
     setup_logging(&cfg);
 
-    let db = Database::new(cfg.database_config(), cfg.network.as_str()).await?;
+    let db = Database::new(cfg.database_config(), cfg.chain_name.as_str()).await?;
 
     // Start JSON server
     start_server(db, cfg.server_config()).await?;
