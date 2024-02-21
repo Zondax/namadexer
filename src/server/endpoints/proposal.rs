@@ -1,5 +1,5 @@
 use crate::{
-    server::{tx::VoteProposalTx, ProposalDetails, ServerState},
+    server::{ProposalDetails, ServerState},
     Error,
 };
 use axum::{
@@ -22,23 +22,18 @@ pub async fn get_proposal(
     let mut prop = ProposalDetails::try_from(row)?;
 
     // Get Votes
-    let row_votes = state.db.vote_proposal_data(prop.id as u64).await?;
-    if let Some(row_votes) = row_votes {
-        // let mut vote_tx = VoteProposalTx::try_from(row_votes)?;
+    let delegations = state.db.vote_proposal_delegations(prop.id as u64).await?;
 
-        let delegations = state.db.vote_proposal_delegations(prop.id as u64).await?;
+    let delegations: Vec<String> = delegations
+        .into_iter()
+        .filter_map(|row| {
+            row.try_get::<Option<String>, _>("delegator_id")
+                .ok()
+                .flatten()
+        })
+        .collect::<Vec<String>>();
 
-        let delegations: Vec<String> = delegations
-            .into_iter()
-            .filter_map(|row| {
-                row.try_get::<Option<String>, _>("delegator_id")
-                    .ok()
-                    .flatten()
-            })
-            .collect::<Vec<String>>();
-
-        prop.add_votes(delegations);
-    }
+    prop.add_votes(delegations)?;
 
     Ok(Json(Some(prop)))
 }
