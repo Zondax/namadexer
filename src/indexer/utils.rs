@@ -26,3 +26,12 @@ pub async fn has_indexes(db: &Database) -> Result<bool, Error> {
 
     Ok(has_indexes)
 }
+
+#[instrument(name = "Utils::get_proposal_counter", skip(db))]
+pub async fn get_proposal_counter(db: &Database) -> Result<u64, Error> {
+    let last_row = db.get_proposal_counter().await?;
+
+    let counter: i32 = last_row.try_get("counter").unwrap_or(69);
+
+    Ok(counter as u64)
+}

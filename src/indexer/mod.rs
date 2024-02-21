@@ -3,8 +3,8 @@ use crate::utils::load_checksums;
 use futures::stream::StreamExt;
 use futures_util::pin_mut;
 use futures_util::Stream;
+use namada_sdk::governance::storage::keys as governance_storage;
 use namada_sdk::rpc;
-use namada_sdk::tx::Data;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -17,8 +17,6 @@ use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
 use tracing::{info, instrument};
-pub mod proposal_details;
-pub use proposal_details::ProposalDetails;
 
 pub mod utils;
 
@@ -252,7 +250,8 @@ pub async fn start_indexing(
         }
 
         current_height += 1;
-        // Index proposals content
+
+        // We query proposal at the end of every block
         index_proposals(&config, db.clone()).await?;
     }
 
@@ -294,20 +293,29 @@ fn spawn_block_producer(
 }
 
 async fn index_proposals(config: &IndexerConfig, db: Database) -> Result<(), Error> {
-    let rows = db.get_proposals_without_content().await?;
     let client = HttpClient::new(config.tendermint_addr.as_str())?;
 
-    for row in rows {
-        let prop = ProposalDetails::try_from(row)?;
+    // Get last indexed proposal
+    let internal_counter: u64 = utils::get_proposal_counter(&db).await?;
 
-        // Query prop from rpc
-        let storage_prop = rpc::query_proposal_by_id(&client, prop.id as u64)
-            .await
-            .unwrap();
+    // Get chain counter
+    let gov_key = governance_storage::get_counter_key();
+    let chain_counter: u64 = rpc::query_storage_value(&client, &gov_key).await.unwrap();
 
-        if let Some(storage_prop) = storage_prop {
-            db.update_proposal_content(prop.id, storage_prop.content)
-                .await?;
+    println!(
+        "internal counter: {}, chain_counter: {}",
+        internal_counter, chain_counter
+    );
+
+    // we are iterating from current counter to chain counter -1 (id start from 0)
+    if internal_counter < chain_counter - 1 {
+        for id in internal_counter..chain_counter - 1 {
+            // Query prop from rpc
+            let storage_prop = rpc::query_proposal_by_id(&client, id as u64).await.unwrap();
+
+            if let Some(storage_prop) = storage_prop {
+                db.save_proposal(storage_prop).await?;
+            }
         }
     }
 

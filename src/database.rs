@@ -2,6 +2,7 @@ use crate::queries::insert_block_query;
 use crate::{config::DatabaseConfig, error::Error, utils};
 use std::collections::BTreeMap;
 
+use namada_sdk::governance::storage::proposal::StorageProposal;
 use namada_sdk::types::key::common::PublicKey;
 use namada_sdk::{
     account::{InitAccount, UpdateAccount},
@@ -46,7 +47,8 @@ use crate::tables::{
     get_create_delegations_table, get_create_evidences_table_query, get_create_proposals_table,
     get_create_transactions_table_query, get_create_transactions_view_query,
     get_create_tx_bond_table_query, get_create_tx_bridge_pool_table_query,
-    get_create_tx_transfer_table_query, get_create_vote_proposal_table,
+    get_create_tx_init_proposal_table, get_create_tx_transfer_table_query,
+    get_create_vote_proposal_table,
 };
 
 use metrics::{histogram, increment_counter};
@@ -163,6 +165,10 @@ impl Database {
             .await?;
 
         query(get_create_proposals_table(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(get_create_tx_init_proposal_table(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
@@ -792,9 +798,9 @@ impl Database {
                         // }
                         "tx_init_proposal" => {
                             let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                                "INSERT INTO {}.proposals(
+                                "INSERT INTO {}.tx_init_proposal(
                                     tx_id,
-                                    id,
+                                    custom_id,
                                     type,
                                     author,
                                     voting_start_epoch,
@@ -1364,6 +1370,47 @@ impl Database {
         .await?;
 
         Ok(())
+    }
+
+    #[instrument(skip(self))]
+    pub async fn save_proposal(&self, proposal: StorageProposal) -> Result<(), Error> {
+        let content: BTreeMap<String, String> = proposal.content.clone();
+
+        // I'm using standard query instead of query builder because i have no idea how to cast content to ::json with push_values
+        query(format!("INSERT INTO {}.proposals (id, type, author, content, voting_start_epoch, voting_end_epoch, grace_epoch) VALUES ($1, $2, $3, $4::json, $5, $6, $7);", self.network).as_str(),)
+            .bind(proposal.id as i32)
+            .bind(proposal.r#type.to_string())
+            .bind(proposal.author.to_string())
+            .bind(serde_json::to_string(&content).unwrap())
+            .bind(
+                proposal
+                    .voting_start_epoch
+                    .to_string()
+                    .parse::<i32>()
+                    .unwrap(),
+            )
+            .bind(
+                proposal
+                    .voting_end_epoch
+                    .to_string()
+                    .parse::<i32>()
+                    .unwrap(),
+            )
+            .bind(proposal.grace_epoch.to_string().parse::<i32>().unwrap())
+            .execute(&*self.pool).await?;
+
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    /// Returns the latest height value, otherwise returns an Error.
+    pub async fn get_proposal_counter(&self) -> Result<Row, Error> {
+        let str = format!("SELECT MAX(id) AS counter FROM {}.proposals", self.network);
+
+        query(&str)
+            .fetch_one(&*self.pool)
+            .await
+            .map_err(Error::from)
     }
 
     /// Retrieves a historical list of thresholds associated with a given account.

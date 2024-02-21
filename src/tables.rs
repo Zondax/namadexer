@@ -215,11 +215,26 @@ pub fn get_create_delegations_table(network: &str) -> String {
 pub fn get_create_proposals_table(network: &str) -> String {
     format!(
         "CREATE TABLE IF NOT EXISTS {}.proposals (
-        tx_id BYTEA NOT NULL,
-        id INTEGER,
+        id INTEGER PRIMARY KEY,
         type TEXT NOT NULL,
         author TEXT NOT NULL,
         content JSON,
+        voting_start_epoch INTEGER,
+        voting_end_epoch INTEGER,
+        grace_epoch INTEGER
+    );",
+        network
+    )
+}
+
+// store proposals in specific table
+pub fn get_create_tx_init_proposal_table(network: &str) -> String {
+    format!(
+        "CREATE TABLE IF NOT EXISTS {}.tx_init_proposal (
+        tx_id BYTEA NOT NULL,
+        custom_id INTEGER,
+        type TEXT NOT NULL,
+        author TEXT NOT NULL,
         voting_start_epoch INTEGER,
         voting_end_epoch INTEGER,
         grace_epoch INTEGER
