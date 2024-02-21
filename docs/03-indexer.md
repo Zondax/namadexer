@@ -8,9 +8,10 @@ The indexer must have the following configuration:
 
 Settings.toml
 ```toml
-# Level of logging in the indexer
+# Level and format of logging in the indexer
 log_level = "info"
-network = "public-testnet-15" # IMPORANT! Do not use `.` just put the name of the network and don't have the hash (e.g 'shielded-expedition.b40d8e9055' becomes 'shielded-expedition')
+log_format = "pretty" # optional; either "pretty" or "json"
+chain_name = "public-testnet-15" # IMPORANT! Do not use `.` just put the name of the network and don't have the hash (e.g 'shielded-expedition.b40d8e9055' becomes 'shielded-expedition')
 
 # Connection information for the PostgreSQL database
 [database]

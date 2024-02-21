@@ -1,5 +1,7 @@
 log_level = "info"
-network = "public-testnet-15"
+log_format = "pretty"
+# The chain name is the Chain ID value without what is after the '.' (e.g 'shielded-expedition.88f17d1d14' -> 'shielded-expedition')
+chain_name = "public-testnet-15"
 
 [database]
 host = "localhost"

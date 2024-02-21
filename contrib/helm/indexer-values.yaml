@@ -64,6 +64,7 @@ configMap:
     settings:
       Settings.toml: |
         log_level = "info"
+        log_format = "json"
         network = "public-testnet-14"
     
         [database]

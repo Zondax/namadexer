@@ -18,13 +18,13 @@ use tokio::sync::mpsc::error::SendError;
 pub enum Error {
     #[error("Invalid Block data")]
     InvalidBlockData,
-    #[error("Invalid Transaction data")]
-    InvalidTxData,
+    #[error("Invalid Transaction data (reason: {0})")]
+    InvalidTxData(String),
     #[error("Tendermint error: {0}")]
     TendermintError(#[from] TError),
     #[error("Tendermint rpc_error: {0}")]
     TendermintRpcError(#[from] TRpcError),
-    #[error("Configuration error: {0}")]
+    #[error("Configuration file error: {0}")]
     Config(#[from] ConfigError),
     #[error("Configuration error: {0}")]
     IO(#[from] std::io::Error),
@@ -71,7 +71,7 @@ impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status = match self {
             Error::InvalidBlockData => StatusCode::EXPECTATION_FAILED,
-            Error::InvalidTxData => StatusCode::EXPECTATION_FAILED,
+            Error::InvalidTxData(_) => StatusCode::EXPECTATION_FAILED,
             Error::DB(_) => StatusCode::NOT_FOUND,
             Error::HexError(_) => StatusCode::BAD_REQUEST,
             Error::TendermintError(_) => StatusCode::EXPECTATION_FAILED,
