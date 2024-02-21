@@ -651,16 +651,8 @@ impl Database {
                 let code_hex = hex::encode(code.as_slice());
                 let unknown_type = "unknown".to_string();
                 let type_tx = checksums_map.get(&code_hex).unwrap_or(&unknown_type);
-<<<<<<< HEAD
                 code_type = type_tx.to_string();
 
-                let mut data: Vec<u8> = vec![];
-                if type_tx != "tx_bridge_pool" {
-                    // "tx_bridge_pool" doesn't have their data in the data section anymore ?
-                    data = tx.data().ok_or(Error::InvalidTxData)?;
-                }
-=======
->>>>>>> main
 
                 info!("Saving {} transaction", type_tx);
 
