@@ -1,10 +1,12 @@
 use crate::queries::insert_block_query;
 use crate::{config::DatabaseConfig, error::Error, utils};
+use std::collections::BTreeMap;
 
 use namada_sdk::types::key::common::PublicKey;
 use namada_sdk::{
     account::{InitAccount, UpdateAccount},
     borsh::BorshDeserialize,
+    governance::InitProposalData,
     governance::VoteProposalData,
     tendermint_proto::types::EvidenceList as RawEvidenceList,
     tx::{
@@ -41,7 +43,7 @@ use crate::{
 use crate::tables::{
     get_create_account_public_keys_table, get_create_account_updates_table,
     get_create_block_table_query, get_create_commit_signatures_table_query,
-    get_create_delegations_table, get_create_evidences_table_query,
+    get_create_delegations_table, get_create_evidences_table_query, get_create_proposals_table,
     get_create_transactions_table_query, get_create_transactions_view_query,
     get_create_tx_bond_table_query, get_create_tx_bridge_pool_table_query,
     get_create_tx_transfer_table_query, get_create_vote_proposal_table,
@@ -157,6 +159,10 @@ impl Database {
             .await?;
 
         query(get_create_delegations_table(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(get_create_proposals_table(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
@@ -784,6 +790,49 @@ impl Database {
                         //         .build();
                         //     query.execute(&mut *sqlx_tx).await?;
                         // }
+                        "tx_init_proposal" => {
+                            let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
+                                "INSERT INTO {}.proposals(
+                                    tx_id,
+                                    id,
+                                    type,
+                                    author,
+                                    voting_start_epoch,
+                                    voting_end_epoch,
+                                    grace_epoch
+                                )",
+                                network
+                            ));
+
+                            let tx_data = InitProposalData::try_from_slice(&data[..])?;
+
+                            let query = query_builder
+                                .push_values(std::iter::once(0), |mut b, _| {
+                                    b.push_bind(&hash_id)
+                                        .push_bind(tx_data.id as i32)
+                                        .push_bind(tx_data.r#type.to_string())
+                                        .push_bind(tx_data.author.to_string())
+                                        .push_bind(
+                                            tx_data
+                                                .voting_start_epoch
+                                                .to_string()
+                                                .parse::<i32>()
+                                                .unwrap(),
+                                        )
+                                        .push_bind(
+                                            tx_data
+                                                .voting_end_epoch
+                                                .to_string()
+                                                .parse::<i32>()
+                                                .unwrap(),
+                                        )
+                                        .push_bind(
+                                            tx_data.grace_epoch.to_string().parse::<i32>().unwrap(),
+                                        );
+                                })
+                                .build();
+                            query.execute(&mut *sqlx_tx).await?;
+                        }
                         "tx_vote_proposal" => {
                             let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
                                 "INSERT INTO {}.vote_proposal(
@@ -1267,6 +1316,54 @@ impl Database {
             .fetch_all(&*self.pool)
             .await
             .map_err(Error::from)
+    }
+
+    #[instrument(skip(self))]
+    /// Return proposals that don't have content
+    pub async fn get_proposals_without_content(&self) -> Result<Vec<Row>, Error> {
+        let str = format!(
+            "SELECT * FROM {}.proposals WHERE content is null",
+            self.network
+        );
+
+        // use query_one as the row matching max height is unique.
+        query(&str)
+            .fetch_all(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
+    #[instrument(skip(self))]
+    /// Return all proposals
+    pub async fn get_proposals(&self) -> Result<Vec<Row>, Error> {
+        let str = format!("SELECT * FROM {}.proposals;", self.network);
+
+        // use query_one as the row matching max height is unique.
+        query(&str)
+            .fetch_all(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
+    #[instrument(skip(self))]
+    pub async fn update_proposal_content(
+        &self,
+        id: i32,
+        content: BTreeMap<String, String>,
+    ) -> Result<(), Error> {
+        query(
+            format!(
+                "UPDATE {}.proposals SET content = $1::json WHERE id = $2",
+                self.network
+            )
+            .as_str(),
+        )
+        .bind(serde_json::to_string(&content).unwrap())
+        .bind(id)
+        .execute(&*self.pool)
+        .await?;
+
+        Ok(())
     }
 
     /// Retrieves a historical list of thresholds associated with a given account.

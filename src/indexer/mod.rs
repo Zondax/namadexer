@@ -1,6 +1,10 @@
+use crate::config::IndexerConfig;
+use crate::utils::load_checksums;
 use futures::stream::StreamExt;
 use futures_util::pin_mut;
 use futures_util::Stream;
+use namada_sdk::rpc;
+use namada_sdk::tx::Data;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -13,9 +17,8 @@ use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
 use tracing::{info, instrument};
-
-use crate::config::IndexerConfig;
-use crate::utils::load_checksums;
+pub mod proposal_details;
+pub use proposal_details::ProposalDetails;
 
 pub mod utils;
 
@@ -249,6 +252,8 @@ pub async fn start_indexing(
         }
 
         current_height += 1;
+        // Index proposals content
+        index_proposals(&config, db.clone()).await?;
     }
 
     // propagate any error from the block producer
@@ -286,4 +291,25 @@ fn spawn_block_producer(
     });
 
     (rx, handler)
+}
+
+async fn index_proposals(config: &IndexerConfig, db: Database) -> Result<(), Error> {
+    let rows = db.get_proposals_without_content().await?;
+    let client = HttpClient::new(config.tendermint_addr.as_str())?;
+
+    for row in rows {
+        let prop = ProposalDetails::try_from(row)?;
+
+        // Query prop from rpc
+        let storage_prop = rpc::query_proposal_by_id(&client, prop.id as u64)
+            .await
+            .unwrap();
+
+        if let Some(storage_prop) = storage_prop {
+            db.update_proposal_content(prop.id, storage_prop.content)
+                .await?;
+        }
+    }
+
+    Ok(())
 }

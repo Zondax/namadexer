@@ -211,6 +211,23 @@ pub fn get_create_delegations_table(network: &str) -> String {
     )
 }
 
+// store proposals in specific table
+pub fn get_create_proposals_table(network: &str) -> String {
+    format!(
+        "CREATE TABLE IF NOT EXISTS {}.proposals (
+        tx_id BYTEA NOT NULL,
+        id INTEGER,
+        type TEXT NOT NULL,
+        author TEXT NOT NULL,
+        content JSON,
+        voting_start_epoch INTEGER,
+        voting_end_epoch INTEGER,
+        grace_epoch INTEGER
+    );",
+        network
+    )
+}
+
 // views
 pub fn get_create_transactions_view_query(network: &str) -> String {
     format!(

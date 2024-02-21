@@ -6,6 +6,7 @@ use namada_sdk::types::key::common::PublicKey;
 use namada_sdk::{
     account::{InitAccount, UpdateAccount},
     borsh::BorshDeserialize,
+    governance::InitProposalData,
     governance::VoteProposalData,
     tx::data::{
         pgf::UpdateStewardCommission,
@@ -37,6 +38,7 @@ pub enum TxDecoded {
     Bond(Bond),
     RevealPK(PublicKey),
     VoteProposal(VoteProposalData),
+    InitProposal(InitProposalData),
     BecomeValidator(Box<BecomeValidator>),
     Unbond(Unbond),
     Withdraw(Withdraw),

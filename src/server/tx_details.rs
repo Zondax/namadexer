@@ -5,6 +5,7 @@ use namada_sdk::types::key::common::PublicKey;
 use namada_sdk::{
     account::{InitAccount, UpdateAccount},
     borsh::BorshDeserialize,
+    governance::InitProposalData,
     governance::VoteProposalData,
     tx::data::{
         pgf::UpdateStewardCommission,
@@ -27,12 +28,11 @@ use sqlx::postgres::PgRow as Row;
 use sqlx::Row as TRow;
 
 use crate::server::tx::{IbcTx, TxDecoded};
-use tendermint::Time;
 use tendermint::block::Height;
+use tendermint::Time;
 
 // namada::ibc::applications::transfer::msgs::transfer::TYPE_URL has been made private and can't be access anymore
 const MSG_TRANSFER_TYPE_URL: &str = "/ibc.applications.transfer.v1.MsgTransfer";
-
 
 /// The relevant information regarding transactions and their types.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -88,7 +88,7 @@ impl TxDetails {
     pub fn decode_tx(&mut self, checksums: &HashMap<String, String>) -> Result<(), Error> {
         if self.is_decrypted() {
             let Some(type_tx) = checksums.get(&self.code()) else {
-                return Err(Error::InvalidTxData);
+                return Err(Error::InvalidTxData("failed to get checksum".into()));
             };
 
             let decoded = match type_tx.as_str() {
@@ -101,6 +101,9 @@ impl TxDetails {
                 }
                 "tx_vote_proposal" => {
                     VoteProposalData::try_from_slice(&self.data()).map(TxDecoded::VoteProposal)?
+                }
+                "tx_init_proposal" => {
+                    InitProposalData::try_from_slice(&self.data()).map(TxDecoded::InitProposal)?
                 }
                 "tx_init_validator" => BecomeValidator::try_from_slice(&self.data())
                     .map(|t| TxDecoded::BecomeValidator(Box::new(t)))?,
@@ -127,7 +130,10 @@ impl TxDetails {
                     PendingTransfer::try_from_slice(&self.data()).map(TxDecoded::EthPoolBridge)?
                 }
                 _ => {
-                    return Err(Error::InvalidTxData);
+                    return Err(Error::InvalidTxData(format!(
+                        "unsupported type_tx {}",
+                        type_tx
+                    )));
                 }
             };
 
@@ -135,11 +141,11 @@ impl TxDetails {
 
             return Ok(());
         }
-        Err(Error::InvalidTxData)
+        Err(Error::InvalidTxData("tx is not decrypted".into()))
     }
 
     fn decode_ibc(tx_data: &[u8]) -> Result<IbcTx, Error> {
-        let msg = Any::decode(tx_data).map_err(|_| Error::InvalidTxData)?;
+        let msg = Any::decode(tx_data).map_err(|e| Error::InvalidTxData(e.to_string()))?;
         if msg.type_url.as_str() == MSG_TRANSFER_TYPE_URL
             && MsgTransfer::try_from(msg.clone()).is_ok()
         {
@@ -159,11 +165,11 @@ impl TryFrom<Row> for TxDetails {
         // height
         let header_height: i32 = row.try_get("header_height")?;
         let header_height = Height::from(header_height as u32);
-        
+
         // timestamp
         let timestamp: &str = row.try_get("header_time")?;
         let header_time = Time::parse_from_rfc3339(timestamp)?;
-        
+
         let tx_hash: String = row.try_get("tx_hash")?;
         let block_hash: String = row.try_get("block_hash")?;
         let wrapper_hash: String = row.try_get("wrapper_hash")?;
@@ -193,7 +199,7 @@ impl TryFrom<Row> for TxDetails {
             data,
             memo,
             tx: None,
-            return_code
+            return_code,
         })
     }
 }
