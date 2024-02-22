@@ -6,12 +6,12 @@ use namada_sdk::types::key::common::PublicKey;
 use namada_sdk::{
     account::{InitAccount, UpdateAccount},
     borsh::BorshDeserialize,
-    governance::VoteProposalData,
+    governance::{VoteProposalData, InitProposalData},
     tendermint_proto::types::EvidenceList as RawEvidenceList,
     tx::{
         data::{
             pgf::UpdateStewardCommission,
-            pos::{Bond, Unbond},
+            pos::{Bond, Unbond, BecomeValidator, ConsensusKeyChange, CommissionChange, MetaDataChange, Withdraw, Redelegation},
             TxType,
         },
         Tx,
@@ -20,6 +20,7 @@ use namada_sdk::{
         address::Address,
         // key::PublicKey,
         token,
+        eth_bridge_pool::PendingTransfer,
     },
 };
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
@@ -40,11 +41,9 @@ use crate::{
 };
 
 use crate::tables::{
-    get_create_account_public_keys_table, get_create_account_updates_table,
     get_create_block_table_query, get_create_commit_signatures_table_query,
-    get_create_delegations_table, get_create_evidences_table_query,
+    get_create_evidences_table_query,
     get_create_transactions_table_query,
-    get_create_vote_proposal_table,
 };
 
 use metrics::{histogram, increment_counter};
@@ -128,22 +127,6 @@ impl Database {
             .await?;
 
         query(get_create_evidences_table_query(&self.network).as_str())
-            .execute(&*self.pool)
-            .await?;
-
-        query(get_create_account_updates_table(&self.network).as_str())
-            .execute(&*self.pool)
-            .await?;
-
-        query(get_create_account_public_keys_table(&self.network).as_str())
-            .execute(&*self.pool)
-            .await?;
-
-        query(get_create_vote_proposal_table(&self.network).as_str())
-            .execute(&*self.pool)
-            .await?;
-
-        query(get_create_delegations_table(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
@@ -589,7 +572,7 @@ impl Database {
             let mut code = Default::default();
             let mut txid_wrapper: Vec<u8> = vec![];
             let mut hash_id = tx.header_hash().to_vec();
-            let mut data_json: serde_json::Value = json!({});
+            let mut data_json: serde_json::Value = json!(null);
             let mut return_code: Option<i32> = None;
 
 
@@ -711,7 +694,65 @@ impl Database {
                             let tx_update_account = UpdateAccount::try_from_slice(&data[..])?;
                             data_json = serde_json::to_value(tx_update_account)?;
                         }
+                        "tx_resign_steward" => {
+                            let tx_resign_steward = Address::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_resign_steward)?;
+                        }
+                        "tx_update_steward_commission" => {
+                            // we could need to give users more context about this update.
+                            let tx_update_steward_commission = UpdateStewardCommission::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_update_steward_commission)?;
+                        }
+                        "tx_ibc" => {
+                            info!("we do not handle ibc transaction yet");
+                            data_json = serde_json::to_value(hex::encode(&data[..]))?;
+                        }
+                        "tx_become_validator" => {
+                            let tx_become_validator = BecomeValidator::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_become_validator)?;
+                        }
+                        "tx_change_consensus_key" => {
+                            let tx_change_consensus_key = ConsensusKeyChange::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_change_consensus_key)?;
+                        }
+                        "tx_change_validator_commission" => {
+                            let tx_change_validator_commission = CommissionChange::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_change_validator_commission)?;
+                        }
+                        "tx_change_validator_metadata" => {
+                            let tx_change_validator_metadata = MetaDataChange::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_change_validator_metadata)?;
+                        }
+                        "tx_claim_rewards" => {
+                            let tx_claim_rewards = Withdraw::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_claim_rewards)?;
+                        }
+                        "tx_deactivate_validator" => {
+                            let tx_deactivate_validator = Address::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_deactivate_validator)?;
+                        }
+                        "tx_init_proposal" => {
+                            let tx_init_proposal = InitProposalData::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_init_proposal)?;
+                        }
+                        "tx_reactivate_validator" => {
+                            let tx_reactivate_validator = Address::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_reactivate_validator)?;
+                        }
+                        "tx_unjail_validator" => {
+                            let tx_unjail_validator = Address::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_unjail_validator)?;
+                        }
+                        "tx_redelegate" => {
+                            let tx_redelegate = Redelegation::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_redelegate)?;
+                        }
+                        "tx_withdraw" => {
+                            let tx_withdraw = Withdraw::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_withdraw)?;
+                        }
                         _ => { }
+                    }
                 }
             }
 
@@ -839,96 +880,6 @@ impl Database {
             .execute(&*self.pool)
             .await?;
 
-        // query(
-        //     format!(
-        //         "ALTER TABLE {}.tx_transfer ADD CONSTRAINT pk_tx_id_transfer PRIMARY KEY (tx_id);",
-        //         self.network
-        //     )
-        //     .as_str(),
-        // )
-        // .execute(&*self.pool)
-        // .await?;
-
-        query(
-            format!(
-                "CREATE INDEX x_source_transfer ON {}.tx_transfer (source);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        query(
-            format!(
-                "CREATE INDEX x_target_transfer ON {}.tx_transfer (target);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        // query(
-        //     format!(
-        //         "ALTER TABLE {}.tx_bond ADD CONSTRAINT pk_tx_id_bond PRIMARY KEY (tx_id);",
-        //         self.network
-        //     )
-        //     .as_str(),
-        // )
-        // .execute(&*self.pool)
-        // .await?;
-
-        // query(
-        //     format!(
-        //         "ALTER TABLE {}.tx_bridge_pool ADD CONSTRAINT pk_tx_id_bridge PRIMARY KEY (tx_id);",
-        //         self.network
-        //     )
-        //     .as_str(),
-        // )
-        // .execute(&*self.pool)
-        // .await?;
-
-        query(
-            format!(
-                "CREATE INDEX x_validator_bond ON {}.tx_bond (validator);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        query(
-            format!(
-                "CREATE INDEX x_source_bond ON {}.tx_bond (source);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        query(
-            format!(
-                "ALTER TABLE {}.account_public_keys ADD CONSTRAINT pk_id PRIMARY KEY (id);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        query(
-            format!(
-                "ALTER TABLE {}.delegations ADD CONSTRAINT del_id PRIMARY KEY (id);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
         Ok(())
     }
 
@@ -1021,7 +972,7 @@ impl Database {
     pub async fn get_shielded_tx(&self) -> Result<Vec<Row>, Error> {
         // query for transaction with hash
         let str = format!(
-            "SELECT * FROM {}.tx_transfer WHERE source = '{MASP_ADDR}' OR target = '{MASP_ADDR}'",
+            "SELECT * FROM {}.transactions WHERE tx_type = 'Decrypted' AND (data ->> 'source' = '{MASP_ADDR}' OR data ->> 'target' = '{MASP_ADDR}')",
             self.network
         );
 
@@ -1072,17 +1023,12 @@ impl Database {
         // NOTE: there are two scenarios:
         // - account_id does not exists in such case this query will return Ok(None), because we
         // use query.fetch_optional()
-        // - There are not updates including thresholds so far, in that case we use
-        // COALESCE which return a [] empty list instead of null.
-        // doing so we ensure that None is returned in case account_id does not exists.
-        // otherwise a valid row containing a lists, either full or empty.
         let to_query = format!(
             "
-        SELECT COALESCE(ARRAY_AGG(threshold ORDER BY update_id ASC), ARRAY[]::int[]) AS thresholds
-        FROM {}.account_updates
-        WHERE account_id = $1
-        GROUP BY account_id;
-        ",
+            SELECT COALESCE(ARRAY_AGG(data->>'threshold' ORDER BY data->>'addr' ASC), ARRAY[]::text[]) AS thresholds
+            FROM {}.transactions
+            WHERE code = '\\x70f91d4f778d05d40c5a56490ced906b016e4b7a2a2ef5ff0ac0541ff28c5a22' AND data->>'addr' = $1 GROUP BY data->>'addr';
+            ",
             self.network
         );
 
@@ -1123,10 +1069,9 @@ impl Database {
         // COALESCE which return a [] empty list instead of null.
         let to_query = format!(
             "
-            SELECT COALESCE(ARRAY_AGG(vp_code_hash ORDER BY update_id ASC), ARRAY[]::bytea[]) AS code_hashes
+            SELECT COALESCE(ARRAY_AGG(data->>'vp_code_hash' ORDER BY data->>'addr' ASC), ARRAY[]::text[]) AS code_hashes
             FROM {}.account_updates
-            WHERE account_id = $1
-            GROUP BY account_id;
+            WHERE code = '\\x70f91d4f778d05d40c5a56490ced906b016e4b7a2a2ef5ff0ac0541ff28c5a22' AND data->>'addr' = $1 GROUP BY data->>'addr';
             ",
             self.network
         );
@@ -1171,15 +1116,11 @@ impl Database {
     pub async fn account_public_keys(&self, account_id: &str) -> Result<Vec<Row>, Error> {
         let to_query = format!(
             "
-            SELECT ARRAY_AGG(public_key ORDER BY id ASC) as public_keys_batch
-            FROM {}.account_public_keys 
-            WHERE update_id IN (
-                SELECT update_id FROM {}.account_updates WHERE account_id = $1
-            )
-            GROUP BY update_id
-            ORDER BY update_id ASC;
+            SELECT ARRAY_AGG(data->>'public_keys')
+            FROM {}.transactions
+            WHERE code = '\\x70f91d4f778d05d40c5a56490ced906b016e4b7a2a2ef5ff0ac0541ff28c5a22' AND data->>'addr' = $1;
         ",
-            self.network, self.network
+            self.network,
         );
 
         // Each returned row would contain a vector of public keys formatted as strings.
@@ -1191,30 +1132,15 @@ impl Database {
             .map_err(Error::from)
     }
 
-    pub async fn vote_proposal_data(&self, proposal_id: u64) -> Result<Option<Row>, Error> {
+    pub async fn vote_proposal_data(&self, proposal_id: i64) -> Result<Vec<Row>, Error> {
         let query = format!(
-            "SELECT * FROM {}.vote_proposal WHERE vote_proposal_id = $1",
+            "SELECT data FROM {}.transactions WHERE code = '\\xccdbe81f664ca6c2caa11426927093dc10ed95e75b3f2f45bffd8514fee47cd0' AND (data->>'id')::int = $1;",
             self.network
         );
 
         // Execute the query and fetch the first row (if any)
         sqlx::query(&query)
-            .bind(proposal_id.to_be_bytes())
-            .fetch_optional(&*self.pool)
-            .await
-            .map_err(Error::from)
-    }
-
-    pub async fn vote_proposal_delegations(&self, proposal_id: u64) -> Result<Vec<Row>, Error> {
-        let q = format!(
-            "SELECT delegator_id 
-                FROM {}.delegations 
-                WHERE vote_proposal_id = $1",
-            self.network
-        );
-
-        query(&q)
-            .bind(proposal_id.to_be_bytes())
+            .bind(proposal_id)
             .fetch_all(&*self.pool)
             .await
             .map_err(Error::from)

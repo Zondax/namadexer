@@ -29,33 +29,6 @@ use sqlx::Row as TRow;
 // namada::ibc::applications::transfer::msgs::transfer::TYPE_URL has been made private and can't be access anymore
 const MSG_TRANSFER_TYPE_URL: &str = "/ibc.applications.transfer.v1.MsgTransfer";
 
-/// Transaction types
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub enum TxDecoded {
-    Transfer(token::Transfer),
-    Bond(Bond),
-    RevealPK(PublicKey),
-    VoteProposal(VoteProposalData),
-    InitValidator(Box<BecomeValidator>),
-    Unbond(Unbond),
-    Withdraw(Withdraw),
-    InitAccount(InitAccount),
-    UpdateAccount(UpdateAccount),
-    ResignSteward(Address),
-    UpdateStewardCommission(UpdateStewardCommission),
-    EthPoolBridge(PendingTransfer),
-    Ibc(IbcTx),
-    BecomeValidator(Box<BecomeValidator>),
-    ConsensusKeyChange(ConsensusKeyChange),
-    CommissionChange(CommissionChange),
-    MetaDataChange(MetaDataChange),
-    ClaimRewards(Withdraw),
-    DeactivateValidator(Address),
-    InitProposal(InitProposalData),
-    ReactivateValidator(Address),
-    UnjailValidator(Address),
-}
-
 // we have a variant for MsgTransfer, but there are other message types
 // defined in https://github.com/cosmos/ibc-rs/blob/main/crates/ibc/src/core/msgs.rs
 // however none of them implement serde traits, so lets use Any as the general
@@ -93,8 +66,6 @@ pub struct TxInfo {
     code: Option<Vec<u8>>,
     data: Option<serde_json::Value>,
     return_code: Option<i32>, // New field for return_code
-    /// Inner transaction type
-    tx: Option<TxDecoded>,
 }
 
 impl TxInfo {
@@ -114,101 +85,16 @@ impl TxInfo {
         self.data.clone().unwrap_or_default()
     }
 
-    fn set_tx(&mut self, tx_decoded: TxDecoded) {
-        self.tx = Some(tx_decoded);
-    }
-
-    pub fn decode_tx(&mut self, checksums: &HashMap<String, String>) -> Result<(), Error> {
-        if self.is_decrypted() {
-            let Some(type_tx) = checksums.get(&self.code()) else {
-                return Err(Error::InvalidTxData("failed to get checksum".into()));
-            };
-
-            let decoded = match type_tx.as_str() {
-                "tx_transfer" => {
-                    token::Transfer::try_from_slice(&self.data()).map(TxDecoded::Transfer)?
-                }
-                "tx_bond" => Bond::try_from_slice(&self.data()).map(TxDecoded::Bond)?,
-                "tx_reveal_pk" => {
-                    PublicKey::try_from_slice(&self.data()).map(TxDecoded::RevealPK)?
-                }
-                "tx_vote_proposal" => {
-                    VoteProposalData::try_from_slice(&self.data()).map(TxDecoded::VoteProposal)?
-                }
-                "tx_init_validator" => BecomeValidator::try_from_slice(&self.data())
-                    .map(|t| TxDecoded::InitValidator(Box::new(t)))?,
-                "tx_unbond" => Unbond::try_from_slice(&self.data()).map(TxDecoded::Unbond)?,
-                "tx_withdraw" => Withdraw::try_from_slice(&self.data()).map(TxDecoded::Withdraw)?,
-                "tx_init_account" => {
-                    InitAccount::try_from_slice(&self.data()).map(TxDecoded::InitAccount)?
-                }
-                "tx_update_account" => {
-                    // we could need to give users more context here on how the related accound
-                    // has been updated.
-                    UpdateAccount::try_from_slice(&self.data()).map(TxDecoded::UpdateAccount)?
-                }
-                "tx_resign_steward" => {
-                    Address::try_from_slice(&self.data()).map(TxDecoded::ResignSteward)?
-                }
-                "tx_update_steward_commission" => {
-                    // we could need to give users more context about this update.
-                    UpdateStewardCommission::try_from_slice(&self.data())
-                        .map(TxDecoded::UpdateStewardCommission)?
-                }
-                "tx_ibc" => Self::decode_ibc(&self.data()).map(TxDecoded::Ibc)?,
-                "tx_bridge_pool" => {
-                    PendingTransfer::try_from_slice(&self.data()).map(TxDecoded::EthPoolBridge)?
-                }
-                "tx_become_validator" => BecomeValidator::try_from_slice(&self.data())
-                    .map(|t| TxDecoded::InitValidator(Box::new(t)))?,
-                "tx_change_consensus_key" => ConsensusKeyChange::try_from_slice(&self.data())
-                    .map(TxDecoded::ConsensusKeyChange)?,
-                "tx_change_validator_commission" => CommissionChange::try_from_slice(&self.data())
-                    .map(TxDecoded::CommissionChange)?,
-                "tx_change_validator_metadata" => {
-                    MetaDataChange::try_from_slice(&self.data()).map(TxDecoded::MetaDataChange)?
-                }
-                "tx_claim_rewards" => {
-                    Withdraw::try_from_slice(&self.data()).map(TxDecoded::ClaimRewards)?
-                }
-                "tx_deactivate_validator" => {
-                    Address::try_from_slice(&self.data()).map(TxDecoded::DeactivateValidator)?
-                }
-                "tx_init_proposal" => {
-                    InitProposalData::try_from_slice(&self.data()).map(TxDecoded::InitProposal)?
-                }
-                "tx_reactivate_validator" => {
-                    Address::try_from_slice(&self.data()).map(TxDecoded::ReactivateValidator)?
-                }
-                "tx_unjail_validator" => {
-                    Address::try_from_slice(&self.data()).map(TxDecoded::UnjailValidator)?
-                }
-
-                _ => {
-                    return Err(Error::InvalidTxData(format!(
-                        "unsupported type_tx {}",
-                        type_tx
-                    )));
-                }
-            };
-
-            self.set_tx(decoded);
-
-            return Ok(());
-        }
-        Err(Error::InvalidTxData("tx is not decrypted".into()))
-    }
-
-    fn decode_ibc(tx_data: &[u8]) -> Result<IbcTx, Error> {
-        let msg = Any::decode(tx_data).map_err(|e| Error::InvalidTxData(e.to_string()))?;
-        if msg.type_url.as_str() == MSG_TRANSFER_TYPE_URL
-            && MsgTransfer::try_from(msg.clone()).is_ok()
-        {
-            Ok(IbcTx::MsgTransfer(msg))
-        } else {
-            Ok(IbcTx::Any(msg))
-        }
-    }
+    // fn decode_ibc(tx_data: &[u8]) -> Result<IbcTx, Error> {
+    //     let msg = Any::decode(tx_data).map_err(|e| Error::InvalidTxData(e.to_string()))?;
+    //     if msg.type_url.as_str() == MSG_TRANSFER_TYPE_URL
+    //         && MsgTransfer::try_from(msg.clone()).is_ok()
+    //     {
+    //         Ok(IbcTx::MsgTransfer(msg))
+    //     } else {
+    //         Ok(IbcTx::Any(msg))
+    //     }
+    // }
 }
 
 impl TryFrom<Row> for TxInfo {
@@ -239,14 +125,13 @@ impl TryFrom<Row> for TxInfo {
             code,
             data,
             return_code, // Assigning return_code to the struct field
-            tx: None,
         })
     }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct VoteProposalTx {
-    pub id: u64,
+    pub id: i64,
     pub vote: String,
     pub voter: String,
     pub delegations: Vec<String>,
@@ -258,8 +143,7 @@ impl TryFrom<Row> for VoteProposalTx {
     type Error = Error;
 
     fn try_from(value: Row) -> Result<Self, Self::Error> {
-        let id = value.try_get::<[u8; std::mem::size_of::<u64>()], _>("vote_proposal_id")?;
-        let id = u64::from_be_bytes(id);
+        let id = value.try_get::<i64, _>("vote_proposal_id")?;
 
         let vote = value.try_get::<String, _>("vote")?;
         let voter = value.try_get::<String, _>("voter")?;
