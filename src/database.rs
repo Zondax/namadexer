@@ -82,7 +82,8 @@ impl Database {
 
         debug!(
             "connecting to database at {} with timeout {}",
-            config, timeout
+            config.replace(&db_config.password, "*****"),
+            timeout
         );
 
         let pool = PgPoolOptions::new()
