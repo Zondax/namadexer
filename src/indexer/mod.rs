@@ -310,7 +310,7 @@ async fn index_proposals(config: &IndexerConfig, db: Database) -> Result<(), Err
     );
 
     // we are iterating from current counter to chain counter -1 (id start from 0)
-    if internal_counter < chain_counter - 1 {
+    if internal_counter + 1 < chain_counter - 1 {
         for id in internal_counter..chain_counter - 1 {
             // Query prop from rpc
             let storage_prop = rpc::query_proposal_by_id(&client, id as u64).await.unwrap();
