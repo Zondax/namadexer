@@ -1,11 +1,12 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
+use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::{
-    server::{shielded, tx::VoteProposalTx, ServerState, TxInfo, TxDetails},
+    server::{shielded, tx::VoteProposalTx, ServerState, TxDetails, TxInfo},
     Error,
 };
 
@@ -31,27 +32,74 @@ pub async fn get_tx_by_hash(
     Ok(Json(Some(tx)))
 }
 
+#[derive(Deserialize)]
+pub struct PaginationQuery {
+    page: Option<u32>,
+    limit: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PaginatedResponse {
+    data: Vec<TxDetails>,
+    pagination: PaginationMetadata,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PaginationMetadata {
+    total_records: u32,
+    current_page: u32,
+    total_pages: u32,
+    next_page: Option<u32>,
+    prev_page: Option<u32>,
+}
+
 pub async fn get_tx_by_memo(
     State(state): State<ServerState>,
     Path(memo): Path<String>,
-) -> Result<Json<Vec<TxDetails>>, Error> {
+    Query(pagination): Query<PaginationQuery>,
+) -> Result<Json<PaginatedResponse>, Error> {
     info!("calling /tx_by_memo/:memo{}", memo);
 
-    let rows = state.db.get_tx_memo(memo).await?;
+    let page = pagination.page.unwrap_or(1);
+    let limit = pagination.limit.unwrap_or(50);
+
+    let offset = (page - 1) * limit;
+
+    let total_records = state.db.get_total_tx_count_by_memo(memo.clone()).await?;
+    let tx_counter: i64 = total_records.try_get("counter").unwrap_or(0);
+
+    let rows = state.db.get_tx_memo(memo, limit, offset).await?;
 
     let mut infos: Vec<TxDetails> = Vec::new();
 
     for row in rows {
-
         let mut tx = TxDetails::try_from(row)?;
 
         // ignore the error for now
         _ = tx.decode_tx(&state.checksums_map);
 
         infos.push(tx);
-    };
+    }
 
-    Ok(Json(infos))
+    // Calculate pagination metadata
+    let total_pages = (tx_counter as f64 / limit as f64).ceil() as u32;
+    let next_page = if page < total_pages {
+        Some(page + 1)
+    } else {
+        None
+    };
+    let prev_page = if page > 1 { Some(page - 1) } else { None };
+
+    Ok(Json(PaginatedResponse {
+        data: infos,
+        pagination: PaginationMetadata {
+            total_records: tx_counter as u32,
+            current_page: page,
+            total_pages,
+            next_page,
+            prev_page,
+        },
+    }))
 }
 
 // Return a list of the shielded assets and their total compiled using all the shielded transactions (in, internal and out)

@@ -1270,16 +1270,38 @@ impl Database {
 
     #[instrument(skip(self))]
     /// Returns Transaction identified by memo
-    pub async fn get_tx_memo(&self, memo: String) -> Result<Vec<Row>, Error> {
+    pub async fn get_tx_memo(
+        &self,
+        memo: String,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<Row>, Error> {
         // query for transaction with memo
         let str = format!(
-            "SELECT * FROM {}.{TX_VIEW_NAME} t WHERE t.memo=$1",
+            "SELECT * FROM {}.{TX_VIEW_NAME} t WHERE t.memo=$1 ORDER BY t.header_height DESC LIMIT $2 OFFSET $3",
             self.network
         );
 
         query(&str)
             .bind(memo)
+            .bind(limit as i64)
+            .bind(offset as i64)
             .fetch_all(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
+    #[instrument(skip(self))]
+    /// Returns the total number of Transactions identified by memo
+    pub async fn get_total_tx_count_by_memo(&self, memo: String) -> Result<Row, Error> {
+        let str = format!(
+            "SELECT COUNT(*) as counter FROM {}.{TX_VIEW_NAME} t WHERE t.memo=$1",
+            self.network
+        );
+
+        query(&str)
+            .bind(memo)
+            .fetch_one(&*self.pool)
             .await
             .map_err(Error::from)
     }
@@ -1403,7 +1425,10 @@ impl Database {
     #[instrument(skip(self))]
     /// Returns the latest height value, otherwise returns an Error.
     pub async fn get_proposal_counter(&self) -> Result<Row, Error> {
-        let str = format!("SELECT COUNT(id) AS counter FROM {}.proposals", self.network);
+        let str = format!(
+            "SELECT COUNT(id) AS counter FROM {}.proposals",
+            self.network
+        );
 
         query(&str)
             .fetch_one(&*self.pool)
