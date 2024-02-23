@@ -20,6 +20,7 @@ rand = { version = "0.8", default-features = false }
 rand_core = { version = "0.6", default-features = false }
 tokio = { version = "1.26.0", features = ["rt-multi-thread"] }
 hex = { version = "0.4", features = ["serde"] }
+http = "0.2.11"
 futures-util = { version = "0.3", features = ["sink"] }
 bytes = "1.0"
 time = "0.3"
@@ -52,6 +53,7 @@ prost-types = "0.12.0"
 futures = "0.3.28"
 opentelemetry = "0.20.0"
 tracing-opentelemetry = "0.20.0"
+tower-http = { version = "0.4.4", features = ["cors"] }
 opentelemetry-jaeger = "0.19.0"
 opentelemetry_api = { version = "0.20.0", features = ["metrics"] }
 axum-prometheus = { version = "0.4.0", optional = true }

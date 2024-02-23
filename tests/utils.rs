@@ -14,6 +14,7 @@ pub fn start_server(db: Database) -> Result<SocketAddr, NError> {
         // this ensure there would not be conflicts with other server instances started by other
         // tests
         port: 0,
+        cors_allow_origins: vec![],
     };
 
     let (socket, server) = create_server(db, &config)?;

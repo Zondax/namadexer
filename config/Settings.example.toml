@@ -17,6 +17,7 @@ create_index = true
 [server]
 serve_at = "0.0.0.0"
 port = 30303
+cors_allow_origins = []
 
 [indexer]
 tendermint_addr = "http://127.0.0.1"
