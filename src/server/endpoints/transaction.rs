@@ -36,6 +36,7 @@ pub async fn get_tx_by_hash(
 pub struct PaginationQuery {
     page: Option<u32>,
     limit: Option<u32>,
+    include_wrapper: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -62,13 +63,20 @@ pub async fn get_tx_by_memo(
 
     let page = pagination.page.unwrap_or(1);
     let limit = pagination.limit.unwrap_or(50);
+    let include_wrapper: bool = pagination.include_wrapper.unwrap_or(false);
 
     let offset = (page - 1) * limit;
 
-    let total_records = state.db.get_total_tx_count_by_memo(memo.clone()).await?;
+    let total_records = state
+        .db
+        .get_total_tx_count_by_memo(memo.clone(), !include_wrapper)
+        .await?;
     let tx_counter: i64 = total_records.try_get("counter").unwrap_or(0);
 
-    let rows = state.db.get_tx_memo(memo, limit, offset).await?;
+    let rows = state
+        .db
+        .get_tx_memo(memo, limit, offset, !include_wrapper)
+        .await?;
 
     let mut infos: Vec<TxDetails> = Vec::new();
 

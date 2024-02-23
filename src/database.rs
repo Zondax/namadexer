@@ -1275,14 +1275,23 @@ impl Database {
         memo: String,
         limit: u32,
         offset: u32,
+        exclude_wrapper: bool,
     ) -> Result<Vec<Row>, Error> {
         // query for transaction with memo
-        let str = format!(
-            "SELECT * FROM {}.{TX_VIEW_NAME} t WHERE t.memo=$1 ORDER BY t.header_height DESC LIMIT $2 OFFSET $3",
+        let mut query_str = format!(
+            "SELECT * FROM {}.{TX_VIEW_NAME} t WHERE t.memo=$1",
             self.network
         );
 
-        query(&str)
+        // Append condition to exclude 'wrapper' transactions if exclude_wrapper is true
+        if exclude_wrapper {
+            query_str.push_str(" AND t.tx_type <> 'Wrapper'");
+        }
+
+        // Complete the query with ORDER BY, LIMIT, and OFFSET
+        query_str.push_str(" ORDER BY t.header_height DESC LIMIT $2 OFFSET $3");
+
+        query(&query_str)
             .bind(memo)
             .bind(limit as i64)
             .bind(offset as i64)
@@ -1293,11 +1302,20 @@ impl Database {
 
     #[instrument(skip(self))]
     /// Returns the total number of Transactions identified by memo
-    pub async fn get_total_tx_count_by_memo(&self, memo: String) -> Result<Row, Error> {
-        let str = format!(
+    pub async fn get_total_tx_count_by_memo(
+        &self,
+        memo: String,
+        exclude_wrapper: bool,
+    ) -> Result<Row, Error> {
+        let mut str = format!(
             "SELECT COUNT(*) as counter FROM {}.{TX_VIEW_NAME} t WHERE t.memo=$1",
             self.network
         );
+
+        // Append condition to exclude 'wrapper' transactions if exclude_wrapper is true
+        if exclude_wrapper {
+            str.push_str(" AND t.tx_type <> 'Wrapper'");
+        }
 
         query(&str)
             .bind(memo)
