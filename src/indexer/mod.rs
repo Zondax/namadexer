@@ -298,12 +298,12 @@ async fn index_proposals(config: &IndexerConfig, db: Database) -> Result<(), Err
     let client = HttpClient::new(config.tendermint_addr.as_str())?;
 
     // Get last indexed proposal
-    let internal_counter: u64 = utils::get_proposal_counter(&db).await?;
+    let mut internal_counter: u64 = utils::get_proposal_counter(&db).await?;
 
     // We don't want to index same prop 2 times 
     // (it's not a counter but highest indexed id, maybe i should rename this)
-    if (internal_counter > 0) {
-        internal_counter+1;
+    if internal_counter > 0 {
+        internal_counter += 1;
     }
     // Get chain counter
     let gov_key = governance_storage::get_counter_key();
