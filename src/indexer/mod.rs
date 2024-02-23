@@ -298,7 +298,7 @@ async fn index_proposals(config: &IndexerConfig, db: Database) -> Result<(), Err
     let client = HttpClient::new(config.tendermint_addr.as_str())?;
 
     // Get last indexed proposal
-    let mut internal_counter: u64 = utils::get_proposal_counter(&db).await?;
+    let internal_counter: u64 = utils::get_proposal_counter(&db).await?;
 
     // Get chain counter
     let gov_key = governance_storage::get_counter_key();
