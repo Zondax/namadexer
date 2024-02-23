@@ -1403,7 +1403,7 @@ impl Database {
     #[instrument(skip(self))]
     /// Returns the latest height value, otherwise returns an Error.
     pub async fn get_proposal_counter(&self) -> Result<Row, Error> {
-        let str = format!("SELECT MAX(id) AS counter FROM {}.proposals", self.network);
+        let str = format!("SELECT COUNT(id) AS counter FROM {}.proposals", self.network);
 
         query(&str)
             .fetch_one(&*self.pool)
