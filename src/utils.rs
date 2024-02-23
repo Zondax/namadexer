@@ -4,6 +4,7 @@ use std::{env, fs};
 
 const CHECKSUMS_FILE_PATH_ENV: &str = "CHECKSUMS_FILE_PATH";
 const CHECKSUMS_REMOTE_URL_ENV: &str = "CHECKSUMS_REMOTE_URL";
+const CHECKSUMS_PROCESSED_FILE_PATH_ENV: &str = "CHECKSUMS_PROCESSED_FILE_PATH";
 const CHECKSUMS_DEFAULT_PATH: &str = "checksums.json";
 
 pub fn tx_type_name(tx_type: &TxType) -> String {
@@ -16,6 +17,23 @@ pub fn tx_type_name(tx_type: &TxType) -> String {
 }
 
 pub fn load_checksums() -> Result<HashMap<String, String>, crate::Error> {
+    let checksums_processed_file_path = env::var(CHECKSUMS_PROCESSED_FILE_PATH_ENV);
+    let checksums = match checksums_processed_file_path {
+        Ok(ref path) => fs::read_to_string(path)?,
+        _ => "".to_string(),
+    };
+
+    if checksums.len() > 0 {
+        let json: serde_json::Value = serde_json::from_str(&checksums)?;
+        let obj = json.as_object().ok_or(crate::Error::InvalidChecksum)?;
+        let mut checksums_map = HashMap::new();
+        for (key, value) in obj.iter() {
+
+            checksums_map.insert(key.to_string(), value.as_str().unwrap().to_string());
+        }
+        return Ok(checksums_map);
+    }
+
     let checksums_file_path = env::var(CHECKSUMS_FILE_PATH_ENV);
     let checksums_remote_url = env::var(CHECKSUMS_REMOTE_URL_ENV);
 

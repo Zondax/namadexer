@@ -33,6 +33,23 @@ download-checksum:
 		$(DOWNLOAD_CMD) checksums.json $(URL); \
 	fi
 
+namada_versions := 0.31.1 0.31.2 0.31.3 0.31.4 0.31.5 0.31.6
+download-process-checksums:
+ifeq (, $(shell which jq))
+$(error "jq is not found, please install it from: https://jqlang.github.io/jq/download/")
+endif
+	rm -f tmp.json
+	@for version in $(namada_versions); do \
+  		if [ ! -f checksums_$$version.json ]; then \
+			URL=$(BASE_URL)/v$$version/wasm/checksums.json; \
+			echo $$URL; \
+			$(DOWNLOAD_CMD) checksums_$$version.json $$URL; \
+		fi; \
+		jq 'to_entries | .[] | {key: .value | match("\\.(.*)\\."; "si") | .captures[0].string, value: .key | match("(.*)\\.wasm"; "si") | .captures[0].string}' checksums_$$version.json | jq -s '. | from_entries' >> tmp.json; \
+	done
+	jq -s 'reduce .[] as $$item ({}; . * $$item)' tmp.json > checksums.processed.json
+	rm tmp.json
+
 install-deps:
 	# Use OS variable in the download URL and unzip command
 	$(DOWNLOAD_CMD) protoc-3.16.3-$(OS)-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v3.16.3/protoc-3.16.3-$(OS)-x86_64.zip
