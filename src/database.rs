@@ -1340,7 +1340,7 @@ impl Database {
     #[instrument(skip(self))]
     /// Return all proposals
     pub async fn get_proposals(&self) -> Result<Vec<Row>, Error> {
-        let str = format!("SELECT * FROM {}.proposals;", self.network);
+        let str = format!("SELECT * FROM {}.proposals ORDER by id DESC", self.network);
 
         // use query_one as the row matching max height is unique.
         query(&str)
