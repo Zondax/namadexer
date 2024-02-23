@@ -31,7 +31,7 @@ pub async fn has_indexes(db: &Database) -> Result<bool, Error> {
 pub async fn get_proposal_counter(db: &Database) -> Result<u64, Error> {
     let last_row = db.get_proposal_counter().await?;
 
-    let counter: i32 = last_row.try_get("counter").unwrap_or(0);
+    let counter: i64 = last_row.try_get("counter").unwrap_or(0);
 
     Ok(counter as u64)
 }
