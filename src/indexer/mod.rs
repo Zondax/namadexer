@@ -300,6 +300,11 @@ async fn index_proposals(config: &IndexerConfig, db: Database) -> Result<(), Err
     // Get last indexed proposal
     let internal_counter: u64 = utils::get_proposal_counter(&db).await?;
 
+    // We don't want to index same prop 2 times 
+    // (it's not a counter but highest indexed id, maybe i should rename this)
+    if (internal_counter > 0) {
+        internal_counter+1;
+    }
     // Get chain counter
     let gov_key = governance_storage::get_counter_key();
     let chain_counter: u64 = rpc::query_storage_value(&client, &gov_key).await.unwrap();
@@ -310,7 +315,7 @@ async fn index_proposals(config: &IndexerConfig, db: Database) -> Result<(), Err
     );
 
     // we are iterating from current counter to chain counter -1 (id start from 0)
-    if internal_counter + 1 < chain_counter - 1 {
+    if internal_counter < chain_counter - 1 {
         for id in internal_counter..chain_counter - 1 {
             // Query prop from rpc
             let storage_prop = rpc::query_proposal_by_id(&client, id as u64).await.unwrap();
