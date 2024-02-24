@@ -35,9 +35,6 @@ download-checksum:
 
 namada_versions := 0.31.1 0.31.2 0.31.3 0.31.4 0.31.5 0.31.6
 download-process-checksums:
-ifeq (, $(shell which jq))
-$(error "jq is not found, please install it from: https://jqlang.github.io/jq/download/")
-endif
 	rm -f tmp.json
 	@for version in $(namada_versions); do \
   		if [ ! -f checksums_$$version.json ]; then \
