@@ -39,8 +39,10 @@ pub fn get_create_transactions_table_query(network: &str) -> String {
         fee_amount_per_gas_unit TEXT,
         fee_token TEXT,
         gas_limit_multiplier BIGINT,
+        code_type TEXT,
         code BYTEA,
         data BYTEA,
+        memo BYTEA,
         return_code INTEGER
     );",
         network
