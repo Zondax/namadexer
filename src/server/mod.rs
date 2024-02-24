@@ -1,4 +1,6 @@
 use axum::{routing::get, Router};
+use tower_http::cors::{Any, CorsLayer};
+use http::{HeaderValue, Method};
 
 #[cfg(feature = "prometheus")]
 use axum_prometheus::{PrometheusMetricLayerBuilder, AXUM_HTTP_REQUESTS_DURATION_SECONDS};
@@ -41,6 +43,9 @@ pub struct ServerState {
 }
 
 fn server_routes(state: ServerState) -> Router<()> {
+    let cors = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_origin(Any);
     Router::new()
         .route("/block/height/:block_height", get(get_block_by_height))
         .route("/block/hash/:block_hash", get(get_block_by_hash))
@@ -53,6 +58,7 @@ fn server_routes(state: ServerState) -> Router<()> {
             "/validator/:validator_address/uptime",
             get(get_validator_uptime),
         )
+        .layer(cors)
         .with_state(state)
 }
 
@@ -91,7 +97,14 @@ pub fn create_server(
         .with_metrics_from_fn(|| prometheus_handle)
         .build_pair();
 
-    let routes = server_routes(ServerState { db, checksums_map });
+    let mut routes = server_routes(ServerState { db, checksums_map });
+    if !config.cors_allow_origins.is_empty() {
+        let origins: Vec<HeaderValue> = config.cors_allow_origins.iter().map(|s| s.parse::<HeaderValue>().unwrap()).collect();
+        let cors = CorsLayer::new()
+            .allow_methods([Method::GET])
+            .allow_origin(origins);
+        routes = routes.layer(cors)
+    };
 
     #[cfg(feature = "prometheus")]
     let routes = routes

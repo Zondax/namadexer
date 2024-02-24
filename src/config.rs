@@ -31,6 +31,7 @@ pub struct IndexerConfig {
 pub struct ServerConfig {
     pub serve_at: String,
     pub port: u16,
+    pub cors_allow_origins: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -102,6 +103,7 @@ impl Default for ServerConfig {
         Self {
             serve_at: SERVER_ADDR.to_owned(),
             port: SERVER_PORT,
+            cors_allow_origins: vec![],
         }
     }
 }
@@ -147,6 +149,8 @@ pub struct CliSettings {
     pub server_serve_at: String,
     #[clap(long, env, default_value_t = SERVER_PORT)]
     pub server_port: u16,
+    #[clap(long, env)]
+    pub server_cors_allow_origin: Vec<String>,
     #[clap(long, env, default_value = "localhost")]
     pub database_host: String,
     #[clap(long, env, default_value = "postgres")]
@@ -221,6 +225,7 @@ impl From<CliSettings> for Settings {
             server: ServerConfig {
                 serve_at: value.server_serve_at,
                 port: value.server_port,
+                cors_allow_origins: value.server_cors_allow_origin,
             },
             indexer: IndexerConfig {
                 tendermint_addr: value.indexer_tendermint_addr,
