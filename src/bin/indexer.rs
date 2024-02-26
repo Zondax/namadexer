@@ -59,6 +59,14 @@ async fn main() -> Result<(), Error> {
     #[cfg(feature = "prometheus")]
     start_metrics_server(cfg.prometheus_config()).await?;
 
+    let network = db.network.clone();
+
     info!("Starting indexer");
-    start_indexing(db, cfg.indexer_config(), cfg.database.create_index).await
+    start_indexing(
+        db,
+        cfg.indexer_config(),
+        network.as_str(),
+        cfg.database.create_index,
+    )
+    .await
 }
