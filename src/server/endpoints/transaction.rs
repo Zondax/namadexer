@@ -51,6 +51,5 @@ pub async fn get_vote_proposal(
         votes.push(vote_proposal_data);
     }
 
-
     Ok(Json(serde_json::Value::Array(votes)))
 }

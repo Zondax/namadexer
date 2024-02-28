@@ -6,21 +6,24 @@ use namada_sdk::types::key::common::PublicKey;
 use namada_sdk::{
     account::{InitAccount, UpdateAccount},
     borsh::BorshDeserialize,
-    governance::{VoteProposalData, InitProposalData},
+    governance::{InitProposalData, VoteProposalData},
     tendermint_proto::types::EvidenceList as RawEvidenceList,
     tx::{
         data::{
             pgf::UpdateStewardCommission,
-            pos::{Bond, Unbond, BecomeValidator, ConsensusKeyChange, CommissionChange, MetaDataChange, Withdraw, Redelegation},
+            pos::{
+                BecomeValidator, Bond, CommissionChange, ConsensusKeyChange, MetaDataChange,
+                Redelegation, Unbond, Withdraw,
+            },
             TxType,
         },
         Tx,
     },
     types::{
         address::Address,
+        eth_bridge_pool::PendingTransfer,
         // key::PublicKey,
         token,
-        eth_bridge_pool::PendingTransfer,
     },
 };
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
@@ -42,8 +45,7 @@ use crate::{
 
 use crate::tables::{
     get_create_block_table_query, get_create_commit_signatures_table_query,
-    get_create_evidences_table_query,
-    get_create_transactions_table_query,
+    get_create_evidences_table_query, get_create_transactions_table_query,
 };
 
 use metrics::{histogram, increment_counter};
@@ -575,7 +577,6 @@ impl Database {
             let mut data_json: serde_json::Value = json!(null);
             let mut return_code: Option<i32> = None;
 
-
             // Decrypted transaction give access to the raw data
             if let TxType::Decrypted(..) = tx.header().tx_type {
                 // For unknown reason the header has to be updated before hashing it for its id (https://github.com/Zondax/namadexer/issues/23)
@@ -626,7 +627,6 @@ impl Database {
                         .data()
                         .ok_or(Error::InvalidTxData("tx has no data".into()))?;
 
-                
                     dbg!(type_tx.as_str());
 
                     info!("Saving {} transaction", type_tx);
@@ -636,7 +636,6 @@ impl Database {
                         "tx_transfer" => {
                             let transfer = token::Transfer::try_from_slice(&data[..])?;
                             data_json = serde_json::to_value(transfer)?;
-
                         }
                         "tx_bond" => {
                             let bond = Bond::try_from_slice(&data[..])?;
@@ -662,21 +661,19 @@ impl Database {
                             // the database.
                             let tx_reveal_pk = PublicKey::try_from_slice(&data[..])?;
                             data_json = serde_json::to_value(tx_reveal_pk)?;
-
                         }
                         "tx_resign_steward" => {
                             // Not much to do, just, check that the address this transactions
                             // holds in the data field is correct, or at least parsed succesfully.
                             let tx_resign_steward = Address::try_from_slice(&data[..])?;
                             data_json = serde_json::to_value(tx_resign_steward)?;
-
                         }
                         "tx_update_steward_commission" => {
                             // Not much to do, just, check that the address this transactions
                             // holds in the data field is correct, or at least parsed succesfully.
-                            let tx_update_steward_commission = UpdateStewardCommission::try_from_slice(&data[..])?;
+                            let tx_update_steward_commission =
+                                UpdateStewardCommission::try_from_slice(&data[..])?;
                             data_json = serde_json::to_value(tx_update_steward_commission)?;
-
                         }
                         "tx_init_account" => {
                             // check that transaction can be parsed
@@ -686,7 +683,6 @@ impl Database {
                             // so far to link those transactions to this.
                             let tx_init_account = InitAccount::try_from_slice(&data[..])?;
                             data_json = serde_json::to_value(tx_init_account)?;
-
                         }
                         "tx_update_account" => {
                             // check that transaction can be parsed
@@ -700,7 +696,8 @@ impl Database {
                         }
                         "tx_update_steward_commission" => {
                             // we could need to give users more context about this update.
-                            let tx_update_steward_commission = UpdateStewardCommission::try_from_slice(&data[..])?;
+                            let tx_update_steward_commission =
+                                UpdateStewardCommission::try_from_slice(&data[..])?;
                             data_json = serde_json::to_value(tx_update_steward_commission)?;
                         }
                         "tx_ibc" => {
@@ -712,15 +709,18 @@ impl Database {
                             data_json = serde_json::to_value(tx_become_validator)?;
                         }
                         "tx_change_consensus_key" => {
-                            let tx_change_consensus_key = ConsensusKeyChange::try_from_slice(&data[..])?;
+                            let tx_change_consensus_key =
+                                ConsensusKeyChange::try_from_slice(&data[..])?;
                             data_json = serde_json::to_value(tx_change_consensus_key)?;
                         }
                         "tx_change_validator_commission" => {
-                            let tx_change_validator_commission = CommissionChange::try_from_slice(&data[..])?;
+                            let tx_change_validator_commission =
+                                CommissionChange::try_from_slice(&data[..])?;
                             data_json = serde_json::to_value(tx_change_validator_commission)?;
                         }
                         "tx_change_validator_metadata" => {
-                            let tx_change_validator_metadata = MetaDataChange::try_from_slice(&data[..])?;
+                            let tx_change_validator_metadata =
+                                MetaDataChange::try_from_slice(&data[..])?;
                             data_json = serde_json::to_value(tx_change_validator_metadata)?;
                         }
                         "tx_claim_rewards" => {
@@ -751,7 +751,7 @@ impl Database {
                             let tx_withdraw = Withdraw::try_from_slice(&data[..])?;
                             data_json = serde_json::to_value(tx_withdraw)?;
                         }
-                        _ => { }
+                        _ => {}
                     }
                 }
             }
