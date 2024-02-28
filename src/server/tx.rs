@@ -1,24 +1,6 @@
 use crate::error::Error;
-use namada_sdk::ibc::apps::transfer::types::msgs::transfer::MsgTransfer;
-use namada_sdk::tx::data::pos::BecomeValidator;
-use namada_sdk::types::key::common::PublicKey;
-use namada_sdk::{
-    account::{InitAccount, UpdateAccount},
-    borsh::BorshDeserialize,
-    governance::{InitProposalData, VoteProposalData},
-    tx::data::{
-        pgf::UpdateStewardCommission,
-        pos::{Bond, CommissionChange, ConsensusKeyChange, MetaDataChange, Unbond, Withdraw},
-    },
-    types::token,
-    types::{address::Address, eth_bridge_pool::PendingTransfer},
-};
-
 use namada_sdk::ibc::primitives::proto::Any;
-use prost::Message;
-
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tracing::info;
 
 use super::utils::serialize_optional_hex;
@@ -27,7 +9,7 @@ use sqlx::postgres::PgRow as Row;
 use sqlx::Row as TRow;
 
 // namada::ibc::applications::transfer::msgs::transfer::TYPE_URL has been made private and can't be access anymore
-const MSG_TRANSFER_TYPE_URL: &str = "/ibc.applications.transfer.v1.MsgTransfer";
+// const MSG_TRANSFER_TYPE_URL: &str = "/ibc.applications.transfer.v1.MsgTransfer";
 
 // we have a variant for MsgTransfer, but there are other message types
 // defined in https://github.com/cosmos/ibc-rs/blob/main/crates/ibc/src/core/msgs.rs

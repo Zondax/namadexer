@@ -36,7 +36,7 @@ use tendermint::block::Block;
 use tendermint_proto::types::evidence::Sum;
 use tendermint_proto::types::CommitSig;
 use tendermint_rpc::endpoint::block_results;
-use tracing::{debug, info, instrument, trace};
+use tracing::{debug, info, instrument};
 
 use crate::{
     DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_DURATION,
@@ -689,16 +689,6 @@ impl Database {
                             // before storing it into database
                             let tx_update_account = UpdateAccount::try_from_slice(&data[..])?;
                             data_json = serde_json::to_value(tx_update_account)?;
-                        }
-                        "tx_resign_steward" => {
-                            let tx_resign_steward = Address::try_from_slice(&data[..])?;
-                            data_json = serde_json::to_value(tx_resign_steward)?;
-                        }
-                        "tx_update_steward_commission" => {
-                            // we could need to give users more context about this update.
-                            let tx_update_steward_commission =
-                                UpdateStewardCommission::try_from_slice(&data[..])?;
-                            data_json = serde_json::to_value(tx_update_steward_commission)?;
                         }
                         "tx_ibc" => {
                             info!("we do not handle ibc transaction yet");

@@ -5,13 +5,12 @@ use axum_prometheus::{PrometheusMetricLayerBuilder, AXUM_HTTP_REQUESTS_DURATION_
 use futures_util::{Future, TryFutureExt};
 #[cfg(feature = "prometheus")]
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
-use std::{collections::HashMap, net::SocketAddr};
+use std::net::SocketAddr;
 use tracing::{info, instrument};
 
 use crate::config::ServerConfig;
 use crate::database::Database;
 use crate::error::Error;
-use crate::utils::load_checksums;
 
 pub mod blocks;
 pub mod tx;
@@ -37,7 +36,6 @@ pub const HTTP_DURATION_SECONDS_BUCKETS: &[f64; 11] = &[
 #[derive(Clone)]
 pub struct ServerState {
     db: Database,
-    checksums_map: HashMap<String, String>,
 }
 
 fn server_routes(state: ServerState) -> Router<()> {
@@ -71,8 +69,6 @@ pub fn create_server(
 ) -> Result<(SocketAddr, impl Future<Output = Result<(), Error>>), Error> {
     info!("Starting JSON server");
 
-    let checksums_map = load_checksums()?;
-
     // JSON API server
     // we move the handler creation here so we propagate errors gracefully
     #[cfg(feature = "prometheus")]
@@ -91,7 +87,7 @@ pub fn create_server(
         .with_metrics_from_fn(|| prometheus_handle)
         .build_pair();
 
-    let routes = server_routes(ServerState { db, checksums_map });
+    let routes = server_routes(ServerState { db });
 
     #[cfg(feature = "prometheus")]
     let routes = routes
