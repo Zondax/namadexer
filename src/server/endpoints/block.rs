@@ -28,7 +28,6 @@ async fn get_tx_hashes(
 
     let mut tx_hashes: Vec<TxShort> = vec![];
     for row in rows.iter() {
-        println!("GET_TX_HASHES_ {:?}", row.columns());
         let hash_id = HashID(row.try_get("hash")?);
         let tx_type: String = row.try_get("tx_type")?;
         tx_hashes.push(TxShort { tx_type, hash_id });

@@ -1,22 +1,27 @@
 use crate::queries::insert_block_query;
 use crate::{config::DatabaseConfig, error::Error, utils};
+use serde_json::json;
 
 use namada_sdk::types::key::common::PublicKey;
 use namada_sdk::{
     account::{InitAccount, UpdateAccount},
     borsh::BorshDeserialize,
-    governance::VoteProposalData,
+    governance::{InitProposalData, VoteProposalData},
     tendermint_proto::types::EvidenceList as RawEvidenceList,
     tx::{
         data::{
             pgf::UpdateStewardCommission,
-            pos::{Bond, Unbond},
+            pos::{
+                BecomeValidator, Bond, CommissionChange, ConsensusKeyChange, MetaDataChange,
+                Redelegation, Unbond, Withdraw,
+            },
             TxType,
         },
         Tx,
     },
     types::{
         address::Address,
+        eth_bridge_pool::PendingTransfer,
         // key::PublicKey,
         token,
     },
@@ -31,7 +36,7 @@ use tendermint::block::Block;
 use tendermint_proto::types::evidence::Sum;
 use tendermint_proto::types::CommitSig;
 use tendermint_rpc::endpoint::block_results;
-use tracing::{debug, info, instrument, trace};
+use tracing::{debug, info, instrument};
 
 use crate::{
     DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_DURATION,
@@ -39,12 +44,8 @@ use crate::{
 };
 
 use crate::tables::{
-    get_create_account_public_keys_table, get_create_account_updates_table,
     get_create_block_table_query, get_create_commit_signatures_table_query,
-    get_create_delegations_table, get_create_evidences_table_query,
-    get_create_transactions_table_query, get_create_tx_bond_table_query,
-    get_create_tx_bridge_pool_table_query, get_create_tx_transfer_table_query,
-    get_create_vote_proposal_table,
+    get_create_evidences_table_query, get_create_transactions_table_query,
 };
 
 use metrics::{histogram, increment_counter};
@@ -139,34 +140,6 @@ impl Database {
             .await?;
 
         query(get_create_evidences_table_query(&self.network).as_str())
-            .execute(&*self.pool)
-            .await?;
-
-        query(get_create_tx_transfer_table_query(&self.network).as_str())
-            .execute(&*self.pool)
-            .await?;
-
-        query(get_create_tx_bond_table_query(&self.network).as_str())
-            .execute(&*self.pool)
-            .await?;
-
-        query(get_create_tx_bridge_pool_table_query(&self.network).as_str())
-            .execute(&*self.pool)
-            .await?;
-
-        query(get_create_account_updates_table(&self.network).as_str())
-            .execute(&*self.pool)
-            .await?;
-
-        query(get_create_account_public_keys_table(&self.network).as_str())
-            .execute(&*self.pool)
-            .await?;
-
-        query(get_create_vote_proposal_table(&self.network).as_str())
-            .execute(&*self.pool)
-            .await?;
-
-        query(get_create_delegations_table(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
@@ -611,9 +584,8 @@ impl Database {
 
             let mut code = Default::default();
             let mut txid_wrapper: Vec<u8> = vec![];
-
             let mut hash_id = tx.header_hash().to_vec();
-
+            let mut data_json: serde_json::Value = json!(null);
             let mut return_code: Option<i32> = None;
 
             // Decrypted transaction give access to the raw data
@@ -659,8 +631,6 @@ impl Database {
                 let unknown_type = "unknown".to_string();
                 let type_tx = checksums_map.get(&code_hex).unwrap_or(&unknown_type);
 
-                debug!("Saving {} transaction", type_tx);
-
                 // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
                 // if the transaction has failed don't try to decode because the changes are not included and the data might not be correct
                 if return_code.unwrap() == 0 {
@@ -668,187 +638,53 @@ impl Database {
                         .data()
                         .ok_or(Error::InvalidTxData("tx has no data".into()))?;
 
+                    dbg!(type_tx.as_str());
+
+                    info!("Saving {} transaction", type_tx);
+
+                    // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
                     match type_tx.as_str() {
                         "tx_transfer" => {
                             let transfer = token::Transfer::try_from_slice(&data[..])?;
-
-                            let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                                "INSERT INTO {}.tx_transfer(
-                                    tx_id,
-                                    source, 
-                                    target, 
-                                    token,
-                                    amount,
-                                    key,
-                                    shielded
-                                )",
-                                network
-                            ));
-
-                            let query = query_builder
-                                .push_values(std::iter::once(0), |mut b, _| {
-                                    b.push_bind(&hash_id)
-                                        .push_bind(transfer.source.to_string())
-                                        .push_bind(transfer.target.to_string())
-                                        .push_bind(transfer.token.to_string())
-                                        .push_bind(transfer.amount.to_string())
-                                        .push_bind(transfer.key.as_ref().map(|k| k.to_string()))
-                                        .push_bind(transfer.shielded.as_ref().map(|s| s.to_vec()));
-                                })
-                                .build();
-                            query.execute(&mut *sqlx_tx).await?;
+                            data_json = serde_json::to_value(transfer)?;
                         }
                         "tx_bond" => {
                             let bond = Bond::try_from_slice(&data[..])?;
-
-                            let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                                "INSERT INTO {}.tx_bond(
-                                    tx_id,
-                                    validator,
-                                    amount,
-                                    source,
-                                    bond
-                                )",
-                                network
-                            ));
-
-                            let query = query_builder
-                                .push_values(std::iter::once(0), |mut b, _| {
-                                    b.push_bind(&hash_id)
-                                        .push_bind(bond.validator.to_string())
-                                        .push_bind(bond.amount.to_string_native())
-                                        .push_bind(bond.source.as_ref().map(|s| s.to_string()))
-                                        .push_bind(true);
-                                })
-                                .build();
-                            query.execute(&mut *sqlx_tx).await?;
+                            data_json = serde_json::to_value(bond)?;
                         }
                         "tx_unbond" => {
                             let unbond = Unbond::try_from_slice(&data[..])?;
-
-                            let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                                "INSERT INTO {}.tx_bond(
-                                    tx_id,
-                                    validator,
-                                    amount,
-                                    source,
-                                    bond
-                                )",
-                                network
-                            ));
-
-                            let query = query_builder
-                                .push_values(std::iter::once(0), |mut b, _| {
-                                    b.push_bind(&hash_id)
-                                        .push_bind(unbond.validator.to_string())
-                                        .push_bind(unbond.amount.to_string_native())
-                                        .push_bind(
-                                            unbond
-                                                .source
-                                                .as_ref()
-                                                .map_or("".to_string(), |s| s.to_string()),
-                                        )
-                                        .push_bind(false);
-                                })
-                                .build();
-                            query.execute(&mut *sqlx_tx).await?;
+                            data_json = serde_json::to_value(unbond)?;
                         }
                         // this is an ethereum transaction
-                        // "tx_bridge_pool" => {
-                        //     // Only TransferToEthereum type is supported at the moment by namada and us.
-                        //     let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
-
-                        //     let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                        //         "INSERT INTO {}.tx_bridge_pool(
-                        //             tx_id,
-                        //             asset,
-                        //             recipient,
-                        //             sender,
-                        //             amount,
-                        //             gas_amount,
-                        //             payer
-                        //         )",
-                        //         network
-                        //     ));
-
-                        //     let query = query_builder
-                        //         .push_values(std::iter::once(0), |mut b, _| {
-                        //             b.push_bind(&hash_id)
-                        //                 .push_bind(tx_bridge.transfer.asset.to_string())
-                        //                 .push_bind(tx_bridge.transfer.recipient.to_string())
-                        //                 .push_bind(tx_bridge.transfer.sender.to_string())
-                        //                 .push_bind(tx_bridge.transfer.amount.to_string_native())
-                        //                 .push_bind(tx_bridge.gas_fee.amount.to_string_native())
-                        //                 .push_bind(tx_bridge.gas_fee.payer.to_string());
-                        //         })
-                        //         .build();
-                        //     query.execute(&mut *sqlx_tx).await?;
-                        // }
+                        "tx_bridge_pool" => {
+                            // Only TransferToEthereum type is supported at the moment by namada and us.
+                            let tx_bridge = PendingTransfer::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_bridge)?;
+                        }
                         "tx_vote_proposal" => {
-                            let mut query_builder: QueryBuilder<_> = QueryBuilder::new(format!(
-                                "INSERT INTO {}.vote_proposal(
-                                    vote_proposal_id,
-                                    vote,
-                                    voter,
-                                    tx_id
-                                )",
-                                network
-                            ));
-
-                            let tx_data = VoteProposalData::try_from_slice(&data[..])?;
-
-                            // vote_proposal_id is an u64, due to lack of support for unsigned
-                            // integers, we store it as be bytes.
-                            let proposal_id = tx_data.id.to_be_bytes();
-
-                            let query = query_builder
-                                .push_values(std::iter::once(0), |mut b, _| {
-                                    b.push_bind(proposal_id)
-                                        .push_bind(tx_data.vote.to_string())
-                                        .push_bind(tx_data.voter.encode())
-                                        .push_bind(&hash_id);
-                                })
-                                .build();
-                            query.execute(&mut *sqlx_tx).await?;
-
-                            // now store delegators
-                            // if there are indeed delegator addresses in the list.
-                            if !tx_data.delegations.is_empty() {
-                                let mut query_builder: QueryBuilder<_> =
-                                    QueryBuilder::new(format!(
-                                        "INSERT INTO {}.delegations(
-                                    vote_proposal_id,
-                                    delegator_id
-                                )",
-                                        network
-                                    ));
-
-                                // Insert each key which would have an update_id associated to it,
-                                // allowing querying keys per updates.
-                                // this also does batch insertion
-                                let query = query_builder
-                                    .push_values(tx_data.delegations.iter(), |mut b, key| {
-                                        b.push_bind(proposal_id).push_bind(key.encode());
-                                    })
-                                    .build();
-                                query.execute(&mut *sqlx_tx).await?;
-                            }
+                            let tx_vote_proposal = VoteProposalData::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_vote_proposal)?;
                         }
                         "tx_reveal_pk" => {
                             // nothing to do here, only check that data is a valid publicKey
                             // otherwise this transaction must not make it into
                             // the database.
-                            _ = PublicKey::try_from_slice(&data[..])?;
+                            let tx_reveal_pk = PublicKey::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_reveal_pk)?;
                         }
                         "tx_resign_steward" => {
                             // Not much to do, just, check that the address this transactions
                             // holds in the data field is correct, or at least parsed succesfully.
-                            _ = Address::try_from_slice(&data[..])?;
+                            let tx_resign_steward = Address::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_resign_steward)?;
                         }
                         "tx_update_steward_commission" => {
                             // Not much to do, just, check that the address this transactions
                             // holds in the data field is correct, or at least parsed succesfully.
-                            _ = UpdateStewardCommission::try_from_slice(&data[..])?;
+                            let tx_update_steward_commission =
+                                UpdateStewardCommission::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_update_steward_commission)?;
                         }
                         "tx_init_account" => {
                             // check that transaction can be parsed
@@ -856,49 +692,65 @@ impl Database {
                             // later accounts could be updated using
                             // tx_update_account, however there is not way
                             // so far to link those transactions to this.
-                            _ = InitAccount::try_from_slice(&data[..])?;
+                            let tx_init_account = InitAccount::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_init_account)?;
                         }
                         "tx_update_account" => {
                             // check that transaction can be parsed
                             // before storing it into database
-                            let tx = UpdateAccount::try_from_slice(&data[..])?;
-
-                            let insert_query = format!(
-                                "INSERT INTO {}.account_updates(account_id, vp_code_hash, threshold, tx_id) 
-                                    VALUES ($1, $2, $3, $4) RETURNING update_id",
-                                network
-                            );
-
-                            let update_id: i32 = sqlx::query_scalar(&insert_query)
-                                .bind(tx.addr.encode())
-                                .bind(tx.vp_code_hash.map(|hash| hash.0))
-                                .bind(tx.threshold.map(|t| t as i32))
-                                .bind(&hash_id)
-                                .fetch_one(&mut *sqlx_tx)
-                                .await?;
-
-                            // Insert only valid public_key values, omiting empty ones
-                            if !tx.public_keys.is_empty() {
-                                trace!("Storing {} public_keys", tx.public_keys.len());
-
-                                let mut query_builder: QueryBuilder<_> =
-                                    QueryBuilder::new(format!(
-                                        "INSERT INTO {}.account_public_keys(
-                                    update_id,
-                                    public_key
-                                )",
-                                        network
-                                    ));
-
-                                // Insert each key which would have an update_id associated to it,
-                                // allowing querying keys per updates.
-                                let query = query_builder
-                                    .push_values(tx.public_keys.iter(), |mut b, key| {
-                                        b.push_bind(update_id).push_bind(key.to_string());
-                                    })
-                                    .build();
-                                query.execute(&mut *sqlx_tx).await?;
-                            }
+                            let tx_update_account = UpdateAccount::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_update_account)?;
+                        }
+                        "tx_ibc" => {
+                            info!("we do not handle ibc transaction yet");
+                            data_json = serde_json::to_value(hex::encode(&data[..]))?;
+                        }
+                        "tx_become_validator" => {
+                            let tx_become_validator = BecomeValidator::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_become_validator)?;
+                        }
+                        "tx_change_consensus_key" => {
+                            let tx_change_consensus_key =
+                                ConsensusKeyChange::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_change_consensus_key)?;
+                        }
+                        "tx_change_validator_commission" => {
+                            let tx_change_validator_commission =
+                                CommissionChange::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_change_validator_commission)?;
+                        }
+                        "tx_change_validator_metadata" => {
+                            let tx_change_validator_metadata =
+                                MetaDataChange::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_change_validator_metadata)?;
+                        }
+                        "tx_claim_rewards" => {
+                            let tx_claim_rewards = Withdraw::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_claim_rewards)?;
+                        }
+                        "tx_deactivate_validator" => {
+                            let tx_deactivate_validator = Address::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_deactivate_validator)?;
+                        }
+                        "tx_init_proposal" => {
+                            let tx_init_proposal = InitProposalData::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_init_proposal)?;
+                        }
+                        "tx_reactivate_validator" => {
+                            let tx_reactivate_validator = Address::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_reactivate_validator)?;
+                        }
+                        "tx_unjail_validator" => {
+                            let tx_unjail_validator = Address::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_unjail_validator)?;
+                        }
+                        "tx_redelegate" => {
+                            let tx_redelegate = Redelegation::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_redelegate)?;
+                        }
+                        "tx_withdraw" => {
+                            let tx_withdraw = Withdraw::try_from_slice(&data[..])?;
+                            data_json = serde_json::to_value(tx_withdraw)?;
                         }
                         _ => {}
                     }
@@ -927,7 +779,7 @@ impl Database {
                 fee_token,
                 gas_limit_multiplier,
                 code,
-                tx.data().map(|v| v.to_vec()),
+                data_json,
                 return_code,
             ));
         }
@@ -1029,96 +881,6 @@ impl Database {
             .execute(&*self.pool)
             .await?;
 
-        // query(
-        //     format!(
-        //         "ALTER TABLE {}.tx_transfer ADD CONSTRAINT pk_tx_id_transfer PRIMARY KEY (tx_id);",
-        //         self.network
-        //     )
-        //     .as_str(),
-        // )
-        // .execute(&*self.pool)
-        // .await?;
-
-        query(
-            format!(
-                "CREATE INDEX x_source_transfer ON {}.tx_transfer (source);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        query(
-            format!(
-                "CREATE INDEX x_target_transfer ON {}.tx_transfer (target);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        // query(
-        //     format!(
-        //         "ALTER TABLE {}.tx_bond ADD CONSTRAINT pk_tx_id_bond PRIMARY KEY (tx_id);",
-        //         self.network
-        //     )
-        //     .as_str(),
-        // )
-        // .execute(&*self.pool)
-        // .await?;
-
-        // query(
-        //     format!(
-        //         "ALTER TABLE {}.tx_bridge_pool ADD CONSTRAINT pk_tx_id_bridge PRIMARY KEY (tx_id);",
-        //         self.network
-        //     )
-        //     .as_str(),
-        // )
-        // .execute(&*self.pool)
-        // .await?;
-
-        query(
-            format!(
-                "CREATE INDEX x_validator_bond ON {}.tx_bond (validator);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        query(
-            format!(
-                "CREATE INDEX x_source_bond ON {}.tx_bond (source);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        query(
-            format!(
-                "ALTER TABLE {}.account_public_keys ADD CONSTRAINT pk_id PRIMARY KEY (id);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
-        query(
-            format!(
-                "ALTER TABLE {}.delegations ADD CONSTRAINT del_id PRIMARY KEY (id);",
-                self.network
-            )
-            .as_str(),
-        )
-        .execute(&*self.pool)
-        .await?;
-
         Ok(())
     }
 
@@ -1211,7 +973,7 @@ impl Database {
     pub async fn get_shielded_tx(&self) -> Result<Vec<Row>, Error> {
         // query for transaction with hash
         let str = format!(
-            "SELECT * FROM {}.tx_transfer WHERE source = '{MASP_ADDR}' OR target = '{MASP_ADDR}'",
+            "SELECT * FROM {}.transactions WHERE tx_type = 'Decrypted' AND (data ->> 'source' = '{MASP_ADDR}' OR data ->> 'target' = '{MASP_ADDR}')",
             self.network
         );
 
@@ -1262,17 +1024,12 @@ impl Database {
         // NOTE: there are two scenarios:
         // - account_id does not exists in such case this query will return Ok(None), because we
         // use query.fetch_optional()
-        // - There are not updates including thresholds so far, in that case we use
-        // COALESCE which return a [] empty list instead of null.
-        // doing so we ensure that None is returned in case account_id does not exists.
-        // otherwise a valid row containing a lists, either full or empty.
         let to_query = format!(
             "
-        SELECT COALESCE(ARRAY_AGG(threshold ORDER BY update_id ASC), ARRAY[]::int[]) AS thresholds
-        FROM {}.account_updates
-        WHERE account_id = $1
-        GROUP BY account_id;
-        ",
+            SELECT COALESCE(ARRAY_AGG(data->>'threshold' ORDER BY data->>'addr' ASC), ARRAY[]::text[]) AS thresholds
+            FROM {}.transactions
+            WHERE code = '\\x70f91d4f778d05d40c5a56490ced906b016e4b7a2a2ef5ff0ac0541ff28c5a22' AND data->>'addr' = $1 GROUP BY data->>'addr';
+            ",
             self.network
         );
 
@@ -1313,10 +1070,9 @@ impl Database {
         // COALESCE which return a [] empty list instead of null.
         let to_query = format!(
             "
-            SELECT COALESCE(ARRAY_AGG(vp_code_hash ORDER BY update_id ASC), ARRAY[]::bytea[]) AS code_hashes
+            SELECT COALESCE(ARRAY_AGG(data->>'vp_code_hash' ORDER BY data->>'addr' ASC), ARRAY[]::text[]) AS code_hashes
             FROM {}.account_updates
-            WHERE account_id = $1
-            GROUP BY account_id;
+            WHERE code = '\\x70f91d4f778d05d40c5a56490ced906b016e4b7a2a2ef5ff0ac0541ff28c5a22' AND data->>'addr' = $1 GROUP BY data->>'addr';
             ",
             self.network
         );
@@ -1361,15 +1117,11 @@ impl Database {
     pub async fn account_public_keys(&self, account_id: &str) -> Result<Vec<Row>, Error> {
         let to_query = format!(
             "
-            SELECT ARRAY_AGG(public_key ORDER BY id ASC) as public_keys_batch
-            FROM {}.account_public_keys 
-            WHERE update_id IN (
-                SELECT update_id FROM {}.account_updates WHERE account_id = $1
-            )
-            GROUP BY update_id
-            ORDER BY update_id ASC;
+            SELECT ARRAY_AGG(data->>'public_keys')
+            FROM {}.transactions
+            WHERE code = '\\x70f91d4f778d05d40c5a56490ced906b016e4b7a2a2ef5ff0ac0541ff28c5a22' AND data->>'addr' = $1;
         ",
-            self.network, self.network
+            self.network,
         );
 
         // Each returned row would contain a vector of public keys formatted as strings.
@@ -1381,30 +1133,15 @@ impl Database {
             .map_err(Error::from)
     }
 
-    pub async fn vote_proposal_data(&self, proposal_id: u64) -> Result<Option<Row>, Error> {
+    pub async fn vote_proposal_data(&self, proposal_id: i64) -> Result<Vec<Row>, Error> {
         let query = format!(
-            "SELECT * FROM {}.vote_proposal WHERE vote_proposal_id = $1",
+            "SELECT data FROM {}.transactions WHERE code = '\\xccdbe81f664ca6c2caa11426927093dc10ed95e75b3f2f45bffd8514fee47cd0' AND (data->>'id')::int = $1;",
             self.network
         );
 
         // Execute the query and fetch the first row (if any)
         sqlx::query(&query)
-            .bind(proposal_id.to_be_bytes())
-            .fetch_optional(&*self.pool)
-            .await
-            .map_err(Error::from)
-    }
-
-    pub async fn vote_proposal_delegations(&self, proposal_id: u64) -> Result<Vec<Row>, Error> {
-        let q = format!(
-            "SELECT delegator_id 
-                FROM {}.delegations 
-                WHERE vote_proposal_id = $1",
-            self.network
-        );
-
-        query(&q)
-            .bind(proposal_id.to_be_bytes())
+            .bind(proposal_id)
             .fetch_all(&*self.pool)
             .await
             .map_err(Error::from)

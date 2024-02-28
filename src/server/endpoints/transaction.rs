@@ -5,7 +5,7 @@ use axum::{
 use tracing::info;
 
 use crate::{
-    server::{shielded, tx::VoteProposalTx, ServerState, TxInfo},
+    server::{shielded, ServerState, TxInfo},
     Error,
 };
 
@@ -23,10 +23,7 @@ pub async fn get_tx_by_hash(
     let Some(row) = row else {
         return Ok(Json(None));
     };
-    let mut tx = TxInfo::try_from(row)?;
-
-    // ignore the error for now
-    _ = tx.decode_tx(&state.checksums_map);
+    let tx = TxInfo::try_from(row)?;
 
     Ok(Json(Some(tx)))
 }
@@ -44,29 +41,15 @@ pub async fn get_shielded_tx(
 
 pub async fn get_vote_proposal(
     State(state): State<ServerState>,
-    Path(proposal_id): Path<u64>,
-) -> Result<Json<Option<VoteProposalTx>>, Error> {
-    let vote_proposal_data = state.db.vote_proposal_data(proposal_id).await?;
+    Path(proposal_id): Path<i64>,
+) -> Result<Json<serde_json::Value>, Error> {
+    let mut votes: Vec<serde_json::Value> = vec![];
+    let rows = state.db.vote_proposal_data(proposal_id).await?;
+    for row in rows {
+        let vote_proposal_data: serde_json::Value = row.try_get("data")?;
 
-    let Some(vote_proposal_data) = vote_proposal_data else {
-        return Ok(Json(None));
-    };
+        votes.push(vote_proposal_data);
+    }
 
-    let mut tx = VoteProposalTx::try_from(vote_proposal_data)?;
-
-    let delegations = state.db.vote_proposal_delegations(proposal_id).await?;
-    // TODO: is it ok to have vote_proposals with empty delegator list?
-
-    let delegations: Vec<String> = delegations
-        .into_iter()
-        .filter_map(|row| {
-            row.try_get::<Option<String>, _>("delegator_id")
-                .ok()
-                .flatten()
-        })
-        .collect::<Vec<String>>();
-
-    tx.delegations = delegations;
-
-    Ok(Json(Some(tx)))
+    Ok(Json(serde_json::Value::Array(votes)))
 }
