@@ -1,6 +1,6 @@
 use axum::{routing::get, Router};
-use tower_http::cors::{Any, CorsLayer};
 use http::{HeaderValue, Method};
+use tower_http::cors::{Any, CorsLayer};
 
 #[cfg(feature = "prometheus")]
 use axum_prometheus::{PrometheusMetricLayerBuilder, AXUM_HTTP_REQUESTS_DURATION_SECONDS};
@@ -95,7 +95,11 @@ pub fn create_server(
 
     let mut routes = server_routes(ServerState { db });
     if !config.cors_allow_origins.is_empty() {
-        let origins: Vec<HeaderValue> = config.cors_allow_origins.iter().map(|s| s.parse::<HeaderValue>().unwrap()).collect();
+        let origins: Vec<HeaderValue> = config
+            .cors_allow_origins
+            .iter()
+            .map(|s| s.parse::<HeaderValue>().unwrap())
+            .collect();
         let cors = CorsLayer::new()
             .allow_methods([Method::GET])
             .allow_origin(origins);
