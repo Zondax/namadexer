@@ -30,7 +30,7 @@ pub(crate) use utils::{from_hex, serialize_hex};
 use self::endpoints::{
     account::get_account_updates,
     block::{get_block_by_hash, get_block_by_height, get_last_block},
-    proposal::{get_proposal, get_proposals},
+    proposal::{get_missing_votes, get_proposal, get_proposals},
     stats::get_stats,
     transaction::{get_shielded_tx, get_tx_by_hash, get_tx_by_memo, get_vote_proposal},
     validator::get_validator_uptime,
@@ -60,6 +60,7 @@ fn server_routes(state: ServerState) -> Router<()> {
         // Proposals
         .route("/proposals", get(get_proposals))
         .route("/proposal/:id", get(get_proposal))
+        .route("/missing_votes/:address/:epoch", get(get_missing_votes))
         .route(
             "/validator/:validator_address/uptime",
             get(get_validator_uptime),

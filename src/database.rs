@@ -1630,6 +1630,30 @@ impl Database {
             .map_err(Error::from)
     }
 
+    pub async fn get_missing_votes(&self, address: String, epoch: i32) -> Result<Vec<Row>, Error> {
+        let q = format!(
+            "SELECT p.id from {0}.proposals p where id not in (SELECT DISTINCT
+                (get_byte(v.vote_proposal_id, 0)::bigint << 56) |
+                (get_byte(v.vote_proposal_id, 1)::bigint << 48) |
+                (get_byte(v.vote_proposal_id, 2)::bigint << 40) |
+                (get_byte(v.vote_proposal_id, 3)::bigint << 32) |
+                (get_byte(v.vote_proposal_id, 4)::bigint << 24) |
+                (get_byte(v.vote_proposal_id, 5)::bigint << 16) |
+                (get_byte(v.vote_proposal_id, 6)::bigint << 8)  |
+                get_byte(v.vote_proposal_id, 7)::bigint AS vote_proposal_id_as_bigint
+            FROM {0}.vote_proposal v
+            WHERE v.voter = $1) and p.voting_end_epoch >$2 and p.voting_start_epoch <= $2",
+            self.network
+        );
+
+        query(&q)
+            .bind(address)
+            .bind(epoch)
+            .fetch_all(&*self.pool)
+            .await
+            .map_err(Error::from)
+    }
+
     // Return the number of commits signed by the `validator_address` in a range of 500 blocks.
     // It is use to calculate the validator uptime.
     pub async fn validator_uptime(

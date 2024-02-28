@@ -56,3 +56,19 @@ pub async fn get_proposals(
 
     Ok(Json(props))
 }
+
+pub async fn get_missing_votes(
+    State(state): State<ServerState>,
+    Path((address, epoch)): Path<(String, i32)>,
+) -> Result<Json<Vec<i32>>, Error> {
+    let rows = state.db.get_missing_votes(address, epoch).await?;
+
+    let mut ids: Vec<i32> = Vec::new();
+
+    for row in rows {
+        let id: i32 = row.try_get("id").unwrap();
+        ids.push(id)
+    }
+
+    Ok(Json(ids))
+}
