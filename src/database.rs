@@ -68,13 +68,24 @@ impl Database {
         // sqlx expects config of the form:
         // postgres://user:password@host:port/db_name
         let config = format!(
-            "postgres://{}:{}@{}:{}/{}",
-            db_config.user, db_config.password, db_config.host, db_config.port, db_config.dbname
+            // In order to accommodate the use of a unix socket, we are actually supplying a dummy
+            // string "not-the-host" to the host portion of the URL, and putting the actual host in the
+            // query string. This is the only way to provide a "host" to sqlx that contains slashes.
+            // When "host=" is given as a query parameter, postgres ignores the host portion of the URL
+            // though it is still required to be present for the URL to parse correctly.
+            "postgres://{}:{}@not-the-host:{}/{}?host={}",
+            db_config.user, db_config.password, db_config.port, db_config.dbname, db_config.host
         );
 
         // If timeout setting is not present in the provided configuration,
         // lets use our default timeout.
         let timeout = db_config.connection_timeout.unwrap_or(DATABASE_TIMEOUT);
+
+        debug!(
+            "connecting to database at {} with timeout {}",
+            config.replace(&db_config.password, "*****"),
+            timeout
+        );
 
         let pool = PgPoolOptions::new()
             .max_connections(10)
