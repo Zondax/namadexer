@@ -23,8 +23,7 @@ COPY --from=builder /usr/src/namadexer/checksums.json /app
 
 RUN apt-get update && rm -rf /var/lib/apt/lists/*
 
-# default env
-ENV INDEXER_CONFIG_PATH "/app/config/Settings.toml"
-ENV RUST_LOG "namadexer=debug"
+# if you wish to run with a config file, mount it at /app/config/Settings.toml
+# and set the env variable INDEXER_CONFIG_PATH to /app/config/Settings.toml
 
 CMD indexer
