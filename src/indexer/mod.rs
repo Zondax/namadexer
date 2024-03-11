@@ -167,7 +167,7 @@ fn blocks_stream<'a>(
     block: u64,
     chain_name: &'a str,
     client: &HttpClient,
-) -> impl Stream<Item = (Block, block_results::Response)> + '_ {
+) -> impl Stream<Item = (Block, block_results::Response)> + 'a {
     futures::stream::iter(block..).then(move |i| async move {
         timeout(Duration::from_secs(30), get_block(i as u32, chain_name, client))
             .await
