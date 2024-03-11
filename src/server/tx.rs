@@ -83,8 +83,6 @@ impl TryFrom<Row> for TxInfo {
     type Error = Error;
 
     fn try_from(row: Row) -> Result<Self, Self::Error> {
-        info!("TxInfo::try_from");
-
         let hash: Vec<u8> = row.try_get("hash")?;
         let block_id: Vec<u8> = row.try_get("block_id")?;
         let tx_type: String = row.try_get("tx_type")?;
