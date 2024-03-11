@@ -25,8 +25,8 @@ mod utils;
 pub(crate) use utils::{from_hex, serialize_hex};
 
 use self::endpoints::{
-    address::get_txs_by_address,
     account::get_account_updates,
+    address::get_txs_by_address,
     block::{get_block_by_hash, get_block_by_height, get_last_block},
     transaction::{get_shielded_tx, get_tx_by_hash, get_vote_proposal},
     validator::get_validator_uptime,
