@@ -35,7 +35,11 @@ const MAX_BLOCKS_IN_CHANNEL: usize = 100;
 type BlockInfo = (Block, block_results::Response);
 
 #[instrument(skip(client))]
-async fn get_block(block_height: u32, client: &HttpClient) -> (Block, block_results::Response) {
+async fn get_block(
+    block_height: u32,
+    chain_name: &str,
+    client: &HttpClient,
+) -> (Block, block_results::Response) {
     loop {
         let height = Height::from(block_height);
         tracing::trace!(message = "Requesting block: ", block_height);
@@ -58,6 +62,13 @@ async fn get_block(block_height: u32, client: &HttpClient) -> (Block, block_resu
                     crate::INDEXER_GET_BLOCK_DURATION,
                     dur.as_secs_f64(),
                     &labels
+                );
+
+                // update the gauge indicating last block height retrieved.
+                metrics::gauge!(
+                    crate::INDEXER_LAST_GET_BLOCK_HEIGHT,
+                    resp.block.header.height.value() as f64,
+                    "chain_name" => chain_name.to_string(),
                 );
 
                 // If we successfully retrieved a block we want to get the block result.
@@ -152,12 +163,13 @@ async fn get_block_results(
 
 #[allow(clippy::let_with_type_underscore)]
 #[instrument(name = "Indexer::blocks_stream", skip(client, block))]
-fn blocks_stream(
+fn blocks_stream<'a>(
     block: u64,
-    client: &HttpClient,
-) -> impl Stream<Item = (Block, block_results::Response)> + '_ {
+    chain_name: &'a str,
+    client: &'a HttpClient,
+) -> impl Stream<Item = (Block, block_results::Response)> + 'a {
     futures::stream::iter(block..).then(move |i| async move {
-        timeout(Duration::from_secs(30), get_block(i as u32, client))
+        timeout(Duration::from_secs(30), get_block(i as u32, chain_name, client))
             .await
             .unwrap()
     })
@@ -173,6 +185,7 @@ fn blocks_stream(
 pub async fn start_indexing(
     db: Database,
     config: &IndexerConfig,
+    chain_name: &str,
     create_index: bool,
 ) -> Result<(), Error> {
     info!("***** Starting indexer *****");
@@ -222,7 +235,7 @@ pub async fn start_indexing(
     // Spaw block producer task, this could speed up saving blocks
     // because it does not need to wait for database to finish saving a block.
     let (mut rx, producer_handler) =
-        spawn_block_producer(current_height as _, client, producer_shutdown);
+        spawn_block_producer(current_height as _, chain_name, client, producer_shutdown);
 
     // Block consumer that stores block into the database
     while let Some(block) = rx.recv().await {
@@ -265,6 +278,7 @@ pub async fn start_indexing(
 
 fn spawn_block_producer(
     current_height: u64,
+    chain_name: &str,
     client: HttpClient,
     producer_shutdown: Arc<AtomicBool>,
 ) -> (Receiver<BlockInfo>, JoinHandle<Result<(), Error>>) {
@@ -273,8 +287,9 @@ fn spawn_block_producer(
         tokio::sync::mpsc::channel(MAX_BLOCKS_IN_CHANNEL);
 
     // Spawn the task
+    let chain_name = chain_name.to_string();
     let handler = tokio::spawn(async move {
-        let stream = blocks_stream(current_height as _, &client);
+        let stream = blocks_stream(current_height as _, chain_name.as_str(), &client);
         pin_mut!(stream);
 
         while let Some(block) = stream.next().await {

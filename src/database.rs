@@ -40,7 +40,7 @@ use tracing::{debug, info, instrument};
 
 use crate::{
     DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_DURATION,
-    DB_SAVE_EVDS_DURATION, DB_SAVE_TXS_DURATION, MASP_ADDR,
+    DB_SAVE_EVDS_DURATION, DB_SAVE_TXS_DURATION, INDEXER_LAST_SAVE_BLOCK_HEIGHT, MASP_ADDR,
 };
 
 use crate::tables::{
@@ -48,7 +48,7 @@ use crate::tables::{
     get_create_evidences_table_query, get_create_transactions_table_query,
 };
 
-use metrics::{histogram, increment_counter};
+use metrics::{gauge, histogram, increment_counter};
 
 const BLOCKS_TABLE_NAME: &str = "blocks";
 const TX_TABLE_NAME: &str = "transactions";
@@ -60,7 +60,7 @@ const DATABASE_TIMEOUT: u64 = 60;
 pub struct Database {
     pool: Arc<PgPool>,
     // we use the network as the name of the schema to allow diffrent net on the same database
-    network: String,
+    pub network: String,
 }
 
 impl Database {
@@ -303,6 +303,11 @@ impl Database {
         if res.is_ok() {
             // update our counter for processed blocks since service started.
             increment_counter!(DB_SAVE_BLOCK_COUNTER, &labels);
+
+            // update the gauge indicating last block height saved.
+            gauge!(INDEXER_LAST_SAVE_BLOCK_HEIGHT,
+                block.header.height.value() as f64,
+                "chain_name" => self.network.clone());
         }
 
         res
