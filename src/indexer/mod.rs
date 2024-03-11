@@ -1,3 +1,5 @@
+use crate::config::IndexerConfig;
+use crate::utils::load_checksums;
 use futures::stream::StreamExt;
 use futures_util::pin_mut;
 use futures_util::Stream;
@@ -12,10 +14,8 @@ use tendermint_rpc::{self, Client, HttpClient};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
+use tokio::time::timeout;
 use tracing::{info, instrument};
-
-use crate::config::IndexerConfig;
-use crate::utils::load_checksums;
 
 pub mod utils;
 
@@ -156,7 +156,11 @@ fn blocks_stream(
     block: u64,
     client: &HttpClient,
 ) -> impl Stream<Item = (Block, block_results::Response)> + '_ {
-    futures::stream::iter(block..).then(move |i| async move { get_block(i as u32, client).await })
+    futures::stream::iter(block..).then(move |i| async move {
+        timeout(Duration::from_secs(30), get_block(i as u32, client))
+            .await
+            .unwrap()
+    })
 }
 
 /// Start the indexer service blocking current thread.
