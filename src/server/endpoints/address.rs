@@ -1,16 +1,12 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     Json,
 };
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use sqlx::Row as TRow;
-use std::collections::HashMap;
 use tracing::info;
 
 use crate::{
-    server::{blocks::HashID, blocks::TxShort, ServerState, TxInfo},
-    BlockInfo, Error,
+    server::{ServerState, TxInfo},
+    Error,
 };
 
 pub async fn get_txs_by_address(

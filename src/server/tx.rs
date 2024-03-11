@@ -1,7 +1,6 @@
 use crate::error::Error;
 use namada_sdk::ibc::primitives::proto::Any;
 use serde::{Deserialize, Serialize};
-use tracing::info;
 
 use super::utils::serialize_optional_hex;
 
