@@ -1,7 +1,6 @@
 use crate::error::Error;
 use namada_sdk::ibc::primitives::proto::Any;
 use serde::{Deserialize, Serialize};
-use tracing::info;
 
 use super::utils::serialize_optional_hex;
 
@@ -83,8 +82,6 @@ impl TryFrom<Row> for TxInfo {
     type Error = Error;
 
     fn try_from(row: Row) -> Result<Self, Self::Error> {
-        info!("TxInfo::try_from");
-
         let hash: Vec<u8> = row.try_get("hash")?;
         let block_id: Vec<u8> = row.try_get("block_id")?;
         let tx_type: String = row.try_get("tx_type")?;
