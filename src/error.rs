@@ -59,6 +59,8 @@ pub enum Error {
     ParseIntError(#[from] ParseIntError),
     #[error("ParseFloat error")]
     ParseFloatError(#[from] ParseFloatError),
+    #[error("Timeout error")]
+    Timeout(#[from] tokio::time::error::Elapsed),
 }
 
 impl From<SendError<(tendermint::Block, block_results::Response)>> for Error {
