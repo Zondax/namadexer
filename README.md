@@ -33,7 +33,7 @@ The system will automatically install the appropriate version of protoc (version
 $ make install-deps
 ```
 
-### Start developping
+### Start developing
 
 Start the docker database :
 ```
