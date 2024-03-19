@@ -47,6 +47,7 @@ use crate::tables::{
     get_create_block_table_query, get_create_commit_signatures_table_query,
     get_create_evidences_table_query, get_create_transactions_table_query,
 };
+use crate::views;
 
 use metrics::{gauge, histogram, increment_counter};
 
@@ -140,6 +141,95 @@ impl Database {
             .await?;
 
         query(get_create_evidences_table_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        // And views
+        query(views::get_create_tx_become_validator_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_bond_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_bridge_pool_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_change_consensus_key_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_change_validator_comission_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_change_validator_metadata_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_claim_rewards_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_deactivate_validator_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_ibc_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_init_account_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_init_proposal_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_reactivate_validator_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_redelegate_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_resign_steward_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_reveal_pk_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_transfert_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_unbond_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_unjail_validator_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_update_account_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_update_steward_commission_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_vote_proposal_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_create_tx_withdraw_view_query(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
