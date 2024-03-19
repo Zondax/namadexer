@@ -1,5 +1,5 @@
 pub fn get_create_tx_become_validator_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_become_validator AS 
+    format!("CREATE OR REPLACE VIEW {network}.tx_become_validator AS 
     SELECT 
     data->>'address' AS address,
     data->>'consensus_key' AS consensus_key, 
@@ -17,7 +17,7 @@ pub fn get_create_tx_become_validator_view_query(network: &str) -> String {
 }
 
 pub fn get_create_tx_bond_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_bond AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_bond AS
     SELECT
     data->>'validator' AS validator,
     data->>'amount' AS amount,
@@ -26,14 +26,14 @@ pub fn get_create_tx_bond_view_query(network: &str) -> String {
 }
 
 pub fn get_create_tx_bridge_pool_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_bridge_pool AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_bridge_pool AS
     SELECT
     data
     FROM {network}.transactions WHERE code = '\\x66412b1b01b6659dc196bef86bdb540181d90c2f984a13597f0aa2a4f9c9c907';")
 }
 
 pub fn get_create_tx_change_consensus_key_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_change_consensus_key AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_change_consensus_key AS
     SELECT
     data->>'validator' AS validator,
     data->>'consensus_key' AS consensus_key
@@ -41,7 +41,7 @@ pub fn get_create_tx_change_consensus_key_view_query(network: &str) -> String {
 }
 
 pub fn get_create_tx_change_validator_comission_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_change_validator_comission AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_change_validator_comission AS
     SELECT
     data->>'validator' AS validator,
     data->>'new_rate' AS new_rate,
@@ -49,7 +49,7 @@ pub fn get_create_tx_change_validator_comission_view_query(network: &str) -> Str
 }
 
 pub fn get_create_tx_change_validator_metadata_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_change_validator_metadata AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_change_validator_metadata AS
     SELECT
     data->>'validator' AS validator,
     data->>'email' AS email,
@@ -62,7 +62,7 @@ pub fn get_create_tx_change_validator_metadata_view_query(network: &str) -> Stri
 }
 
 pub fn get_create_tx_claim_rewards_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_claim_rewards AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_claim_rewards AS
     SELECT
     data->>'validator' AS validator,
     data->>'source' AS source,
@@ -70,21 +70,21 @@ pub fn get_create_tx_claim_rewards_view_query(network: &str) -> String {
 }
 
 pub fn get_create_tx_deactivate_validator_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_deactivate_validator AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_deactivate_validator AS
     SELECT
     data AS address
     FROM {network}.transactions WHERE code = '\\x0faaf9b55c150cdf8b2ea6a05c5fae725735b4fee44aa5da79bcd1881cb43f78';")
 }
 
 pub fn get_create_tx_ibc_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_ibc AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_ibc AS
     SELECT
     data
     FROM {network}.transactions WHERE code = '\\xf99df82e284dcb96a12b409bc43aa7dc77b346ab0b2d3f0a9a39807e749ce8ee';")
 }
 
 pub fn get_create_tx_init_account_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_init_account AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_init_account AS
     SELECT
     data->>'public_keys' AS public_keys,
     data->>'vp_code_hash' AS vp_code_hash,
@@ -93,7 +93,7 @@ pub fn get_create_tx_init_account_view_query(network: &str) -> String {
 }
 
 pub fn get_create_tx_init_proposal_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_init_proposal AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_init_proposal AS
     SELECT
     data->>'id' AS id,
     data->>'content' AS content,
@@ -106,14 +106,14 @@ pub fn get_create_tx_init_proposal_view_query(network: &str) -> String {
 }
 
 pub fn get_create_tx_reactivate_validator_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_reactivate_validator AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_reactivate_validator AS
     SELECT
     data AS address
     FROM {network}.transactions WHERE code = '\\xc94c4e6d549c921b9a483675f0e3af45eef79d4489bd35061fd285af6189b20d';")
 }
 
 pub fn get_create_tx_redelegate_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_redelegate AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_redelegate AS
     SELECT
     data->>'redel_bond_start' AS redel_bond_start,
     data->>'src_validator' AS src_validator,
@@ -123,21 +123,21 @@ pub fn get_create_tx_redelegate_view_query(network: &str) -> String {
 }
 
 pub fn get_create_tx_resign_steward_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_resign_steward AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_resign_steward AS
     SELECT
     data AS address
     FROM {network}.transactions WHERE code = '\\x7655ed64d1b07900672aee307f679b35af77337c077648adc11914348d1f130f';")
 }
 
 pub fn get_create_tx_reveal_pk_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_reveal_pk AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_reveal_pk AS
     SELECT
     data AS public_key
     FROM {network}.transactions WHERE code = '\\x283fd236d971dd0f7ca1a329b508a4039946f40f1c9792863fe6b0fa05d74832';")
 }
 
 pub fn get_create_tx_transfert_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_transfert AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_transfert AS
     SELECT
     data->>'source' AS source,
     data->>'target' AS target,
@@ -147,7 +147,7 @@ pub fn get_create_tx_transfert_view_query(network: &str) -> String {
 }
 
 pub fn get_create_tx_unbond_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_unbond AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_unbond AS
     SELECT
     data->>'validator' AS validator,
     data->>'amount' AS amount,
@@ -156,14 +156,14 @@ pub fn get_create_tx_unbond_view_query(network: &str) -> String {
 }
 
 pub fn get_create_tx_unjail_validator_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_unjail_validator AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_unjail_validator AS
     SELECT
     data AS address
     FROM {network}.transactions WHERE code = '\\x2b1451721dcdd069a19cba1f9b338bb6a45d85d0d56ba7ca952742d3ec5878b3';")
 }
 
 pub fn get_create_tx_update_account_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_update_account AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_update_account AS
     SELECT
     data->>'addr' AS addr,
     data->>'vp_code_hash' AS vp_code_hash,
@@ -174,7 +174,7 @@ pub fn get_create_tx_update_account_view_query(network: &str) -> String {
 }
 
 pub fn get_create_tx_update_steward_commission_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_update_steward_commission AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_update_steward_commission AS
     SELECT
     data->>'steward' AS steward,
     data->>'commission' AS commission 
@@ -182,7 +182,7 @@ pub fn get_create_tx_update_steward_commission_view_query(network: &str) -> Stri
 }
 
 pub fn get_create_tx_vote_proposal_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_vote_proposal AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_vote_proposal AS
     SELECT
     data->>'id' AS id,
     data->>'vote' AS vote,
@@ -192,7 +192,7 @@ pub fn get_create_tx_vote_proposal_view_query(network: &str) -> String {
 }
 
 pub fn get_create_tx_withdraw_view_query(network: &str) -> String {
-    format!("CREATE VIEW IF NOT EXISTS {network}.tx_withdraw AS
+    format!("CREATE OR REPLACE VIEW {network}.tx_withdraw AS
     SELECT
     data->'validator' AS validator,
     data->'source' AS source
