@@ -7,6 +7,7 @@ pub mod server;
 pub mod tables;
 mod telemetry;
 pub mod utils;
+mod views;
 
 pub use crate::config::{
     IndexerConfig, JaegerConfig, LogFormat, PrometheusConfig, ServerConfig, Settings,
