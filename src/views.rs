@@ -44,7 +44,7 @@ pub fn get_create_tx_change_validator_comission_view_query(network: &str) -> Str
     format!("CREATE OR REPLACE VIEW {network}.tx_change_validator_comission AS
     SELECT
     data->>'validator' AS validator,
-    data->>'new_rate' AS new_rate,
+    data->>'new_rate' AS new_rate
     FROM {network}.transactions WHERE code = '\\xf76e025e52c75e34937e76fae43c6ed7544e2268e0bcdafeca0b05f9b7484b36';")
 }
 
@@ -65,7 +65,7 @@ pub fn get_create_tx_claim_rewards_view_query(network: &str) -> String {
     format!("CREATE OR REPLACE VIEW {network}.tx_claim_rewards AS
     SELECT
     data->>'validator' AS validator,
-    data->>'source' AS source,
+    data->>'source' AS source
     FROM {network}.transactions WHERE code = '\\x4af7ca07f6e6f2ad87ffe2c5fca90224544c45cc263e2e4d05775d782cac1f48';")
 }
 
@@ -98,7 +98,7 @@ pub fn get_create_tx_init_proposal_view_query(network: &str) -> String {
     data->>'id' AS id,
     data->>'content' AS content,
     data->>'author' AS author,
-    data->>'r#type' AS r#type,
+    data->>'r#type' AS rtype,
     data->>'voting_start_epoch' AS voting_start_epoch,
     data->>'voting_end_epoch' AS voting_end_epoch,
     data->>'grace_epoch' AS grace_epoch
@@ -167,7 +167,6 @@ pub fn get_create_tx_update_account_view_query(network: &str) -> String {
     SELECT
     data->>'addr' AS addr,
     data->>'vp_code_hash' AS vp_code_hash,
-    data->>'addr' AS addr,
     data->>'public_keys' AS public_keys,
     data->>'threshold' AS threshold
     FROM {network}.transactions WHERE code = '\\x70f91d4f778d05d40c5a56490ced906b016e4b7a2a2ef5ff0ac0541ff28c5a22';")
