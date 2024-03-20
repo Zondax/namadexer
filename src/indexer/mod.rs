@@ -14,7 +14,6 @@ use tendermint_rpc::{self, Client, HttpClient};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
-use tokio::time::timeout;
 use tracing::{info, instrument};
 
 pub mod utils;
@@ -30,10 +29,6 @@ const WAIT_FOR_BLOCK: u64 = 10;
 // either http request or database_queries are both slow
 // processes.
 const MAX_BLOCKS_IN_CHANNEL: usize = 100;
-
-// Timeout duration after triggering an error
-// due to block_producer task hanging
-const TIMEOUT_DURATION: Duration = Duration::from_secs(30);
 
 // Block info required to be saved
 type BlockInfo = (Block, block_results::Response);
