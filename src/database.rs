@@ -32,9 +32,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tendermint::block::Block;
+use tendermint_proto::types::evidence::Sum;
 use tendermint_proto::types::CommitSig;
 use tendermint_proto::types::EvidenceList as RawEvidenceList;
-use tendermint_proto::types::evidence::Sum;
 use tendermint_rpc::endpoint::block_results;
 use tracing::{debug, info, instrument};
 
