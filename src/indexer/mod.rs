@@ -46,7 +46,7 @@ async fn get_block(block_height: u32, chain_name: &str, client: &HttpClient) -> 
 
         let instant = tokio::time::Instant::now();
 
-        let response = client.block(height).await;
+        let response = client.block(block_height).await;
 
         let dur = instant.elapsed();
 
@@ -235,12 +235,7 @@ pub async fn start_indexing(
         spawn_block_producer(current_height as _, chain_name, client, producer_shutdown);
 
     // Block consumer that stores block into the database
-    // Propagades a Timeout error if producer task hangs which means it stop sending new blocks
-    // through the channel for longer than 30 seconds
-    while let Some(block) = timeout(TIMEOUT_DURATION, rx.recv())
-        .await
-        .map_err(Error::Timeout)?
-    {
+    while let Some(block) = rx.recv().await {
         // block is now the block info and the block results
         if let Err(e) = db.save_block(&block.0, &block.1, &checksums_map).await {
             // shutdown producer task
