@@ -31,7 +31,6 @@ services:
       - INDEXER_CONFIG_PATH=/app/config/Settings.toml
     volumes:
        - ../config:/app/config
-       - ${PWD}/checksums.json:/app/checksums.json
     ports:
       - "30303:30303"
     depends_on:
