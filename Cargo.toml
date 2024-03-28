@@ -16,6 +16,7 @@ path = "src/bin/indexer.rs"
 getrandom = { version = "0.2" }
 async-trait = "0.1.51"
 namada_sdk = { git = "https://github.com/anoma/namada", rev = "v0.31.4" }
+#namada_sdk_32 = { package = "namada_sdk", git = "https://github.com/anoma/namada", rev = "v0.32.1" }
 rand = { version = "0.8", default-features = false }
 rand_core = { version = "0.6", default-features = false }
 tokio = { version = "1.26.0", features = ["rt-multi-thread"] }
@@ -74,6 +75,11 @@ criterion = { version = "0.5.1", features = [
 ] }
 httpc-test = "0.1.4"
 
+[patch.crates-io]
+tendermint        = { git = "https://github.com/informalsystems/tendermint-rs.git", branch = "romac/allow-misformed-block" }
+tendermint-rpc    = { git = "https://github.com/informalsystems/tendermint-rs.git", branch = "romac/allow-misformed-block" }
+tendermint-proto  = { git = "https://github.com/informalsystems/tendermint-rs.git", branch = "romac/allow-misformed-block" }
+tendermint-config = { git = "https://github.com/informalsystems/tendermint-rs.git", branch = "romac/allow-misformed-block" }
 
 [features]
 default = []
