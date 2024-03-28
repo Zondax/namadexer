@@ -37,7 +37,6 @@ services:
       - INDEXER_CONFIG_PATH=/app/config/Settings.toml
     volumes:
        - ../config:/app/config
-       - ${PWD}/checksums.json:/app/checksums.json
     ports:
       - "30303:30303"
     depends_on:
@@ -46,7 +45,7 @@ services:
     command: ["/bin/bash", "-c", "/usr/local/bin/server"]
 ```
 
-The `Settings.toml` contains the required configuration data to connect to the Namada node and to the database. We also need the `checksums.json` file from the Namada node. It maps the hash code to the transaction type and is needed for deseriliazing transactions in the indexer and in the server.
+The `Settings.toml` contains the required configuration data to connect to the Namada node and to the database. We also need the `checksums.json` file from the Namada node but only for the indexer. It maps the hash code to the transaction type and is needed for deseriliazing transactions in the indexer.
 
 Launch the containers:
 ```

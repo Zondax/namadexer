@@ -30,6 +30,11 @@ In option it is possible to activate the `prometheus` feature or `jeager` for a 
 
 ## Starting the indexer
 
+You will need first to download the `checksums.json` file from Namada. This is required for the indexer to work.
+```
+$ make download-checksum
+```
+
 In order to start the indexer we will need to pass the configuration file path to the environement variable `INDEXER_CONFIG_PATH`.
 
 ```
@@ -46,20 +51,21 @@ The tables are automatically created by the indexer if they don't exist.
  public | blocks       | table | postgres
  public | evidences    | table | postgres
  public | transactions | table | postgres
- public | tx_bond      | table | postgres
- public | tx_transfer  | table | postgres
 ```
 
 Once the indexer has done the initial syncing it will automatically create indexes to make retrieving data from the server faster.
+
+In addition, we create views for all the different kind of transactions (see all te `tx_*` in `checksums.json`). The views facilitate querying specific data from decoded transactions.
 
 ### Blocks
 
 This table contains all the information found in a block and also the commit information. The evidences link to a block can be found in another table `evidences`.
 
+NOTES: replace `shielded_expedition` with whatever other network name you have configured.
 ```
-\d blocks
+\d shielded_expedition.blocks
 
-                               Table "public.blocks"
+                         Table "shielded_expedition.blocks"
                  Column                  |  Type   | Collation | Nullable | Default 
 -----------------------------------------+---------+-----------+----------+---------
  block_id                                | bytea   |           | not null | 
@@ -85,35 +91,21 @@ This table contains all the information found in a block and also the commit inf
  commit_block_id_hash                    | bytea   |           |          | 
  commit_block_id_parts_header_total      | integer |           |          | 
  commit_block_id_parts_header_hash       | bytea   |           |          | 
-Indexes:
-    "pk_block_id" PRIMARY KEY, btree (block_id)
-    "ux_header_height" UNIQUE, btree (header_height)
-Referenced by:
-    TABLE "transactions" CONSTRAINT "fk_block_id" FOREIGN KEY (block_id) REFERENCES blocks(block_id)
 ```
 
-### Transactions
-
-The `transactions` table contains all the transactions that either encrypted or decrypted (defined by the `tx_type`). The decrypted raw data can then be find under `data` and its corresponding `code` value can be used for decoding the transactions on the server side.
-
-NOTE: it doesn't seem to be worth storing the encrypted data as no computation can be done over it. If a specific use case is mentioned it can be added.
+### Commit Signatures
 
 ```
-\d transactions
+\d shielded_expedition.commit_signatures
 
-            Table "public.transactions"
-  Column  | Type  | Collation | Nullable | Default 
-----------+-------+-----------+----------+---------
- hash     | bytea |           | not null | 
- block_id | bytea |           | not null | 
- tx_type  | text  |           | not null | 
- code     | bytea |           |          | 
- data     | bytea |           |          | 
-Indexes:
-    "pk_hash" PRIMARY KEY, btree (hash)
-Foreign-key constraints:
-    "fk_block_id" FOREIGN KEY (block_id) REFERENCES blocks(block_id)
-
+        Table "shielded_expedition.commit_signatures"
+      Column       |  Type   | Collation | Nullable | Default 
+-------------------+---------+-----------+----------+---------
+ block_id          | bytea   |           | not null | 
+ block_id_flag     | integer |           | not null | 
+ validator_address | bytea   |           | not null | 
+ timestamp         | text    |           |          | 
+ signature         | bytea   |           | not null | 
 ```
 
 ### Evidences
@@ -121,64 +113,209 @@ Foreign-key constraints:
 The `evidences` table contains the evidences of validators misbehavior. Only one evidence is being used in Namada : Duplicate Vote Evidence.
 
 ```
-\d evidences
+\d shielded_expedition.evidences
 
-                   Table "public.evidences"
+             Table "shielded_expedition.evidences"
        Column       |  Type   | Collation | Nullable | Default 
 --------------------+---------+-----------+----------+---------
  block_id           | bytea   |           | not null | 
  height             | integer |           |          | 
  time               | text    |           |          | 
  address            | bytea   |           |          | 
- total_voting_power | integer |           | not null | 
- validator_power    | integer |           | not null | 
+ total_voting_power | text    |           | not null | 
+ validator_power    | text    |           | not null | 
 ```
 
-### Tx Transfer
+### Transactions
 
-The `tx_transfer` table contains all the transfer transaction decoded. It allows to identify the shielded and not shielded transactions. It is redundant with the raw transaction saved in the `transactions` table.
+The `transactions` table contains all the transactions that either encrypted or decrypted (defined by the `tx_type`). The decrypted data is then stored as a json object under `data`. The data is decoded in the indexer side before being stored.
 
-```
-\d tx_transfer
-
-            Table "public.tx_transfer"
-  Column  | Type  | Collation | Nullable | Default 
-----------+-------+-----------+----------+---------
- tx_id    | bytea |           | not null | 
- source   | text  |           | not null | 
- target   | text  |           | not null | 
- token    | text  |           | not null | 
- amount   | text  |           | not null | 
- key      | text  |           |          | 
- shielded | bytea |           |          | 
-Indexes:
-    "pk_tx_id_transfer" PRIMARY KEY, btree (tx_id)
-    "x_source_transfer" hash (source)
-    "x_target_transfer" hash (target)
-```
-
-### Tx Bond
-
-The `tx_bond` table contains the decoded informations for the bond transactions.
+NOTE: it doesn't seem to be worth storing the encrypted data as no computation can be done over it. If a specific use case is mentioned it can be added.
 
 ```
-\d tx_bond
+\d shielded_expedition.transactions
 
-                Table "public.tx_bond"
-  Column   |  Type   | Collation | Nullable | Default 
------------+---------+-----------+----------+---------
- tx_id     | bytea   |           | not null | 
- validator | text    |           | not null | 
- amount    | text    |           | not null | 
- source    | text    |           |          | 
- bond      | boolean |           | not null | 
-Indexes:
-    "pk_tx_id_bond" PRIMARY KEY, btree (tx_id)
-    "x_source_bond" hash (source)
-    "x_validator_bond" hash (validator)
+              Table "shielded_expedition.transactions"
+         Column          |  Type   | Collation | Nullable | Default 
+-------------------------+---------+-----------+----------+---------
+ hash                    | bytea   |           | not null | 
+ block_id                | bytea   |           | not null | 
+ tx_type                 | text    |           | not null | 
+ wrapper_id              | bytea   |           |          | 
+ fee_amount_per_gas_unit | text    |           |          | 
+ fee_token               | text    |           |          | 
+ gas_limit_multiplier    | bigint  |           |          | 
+ code                    | bytea   |           |          | 
+ data                    | json    |           |          | 
+ return_code             | integer |           |          | 
 
 ```
 
+## Postgres views
+
+All the views created.
+
+Views might change after namada changes.
+
+
+```sql
+           View "shielded_expedition.tx_become_validator"
+           Column           | Type | Collation | Nullable | Default 
+----------------------------+------+-----------+----------+---------
+ address                    | text |           |          | 
+ consensus_key              | text |           |          | 
+ eth_cold_key               | text |           |          | 
+ eth_hot_key                | text |           |          | 
+ protocol_key               | text |           |          | 
+ commission_rate            | text |           |          | 
+ max_commission_rate_change | text |           |          | 
+ email                      | text |           |          | 
+ description                | text |           |          | 
+ website                    | text |           |          | 
+ discord_handle             | text |           |          | 
+ avatar                     | text |           |          | 
+
+        View "shielded_expedition.tx_bond"
+  Column   | Type | Collation | Nullable | Default 
+-----------+------+-----------+----------+---------
+ validator | text |           |          | 
+ amount    | text |           |          | 
+ source    | text |           |          | 
+
+   View "shielded_expedition.tx_bridge_pool"
+ Column | Type | Collation | Nullable | Default 
+--------+------+-----------+----------+---------
+ data   | json |           |          | 
+
+  View "shielded_expedition.tx_change_consensus_key"
+    Column     | Type | Collation | Nullable | Default 
+---------------+------+-----------+----------+---------
+ validator     | text |           |          | 
+ consensus_key | text |           |          | 
+
+View "shielded_expedition.tx_change_validator_comission"
+  Column   | Type | Collation | Nullable | Default 
+-----------+------+-----------+----------+---------
+ validator | text |           |          | 
+ new_rate  | text |           |          | 
+
+ View "shielded_expedition.tx_change_validator_metadata"
+     Column      | Type | Collation | Nullable | Default 
+-----------------+------+-----------+----------+---------
+ validator       | text |           |          | 
+ email           | text |           |          | 
+ description     | text |           |          | 
+ website         | text |           |          | 
+ discord_handle  | text |           |          | 
+ avatar          | text |           |          | 
+ commission_rate | text |           |          | 
+
+    View "shielded_expedition.tx_claim_rewards"
+  Column   | Type | Collation | Nullable | Default 
+-----------+------+-----------+----------+---------
+ validator | text |           |          | 
+ source    | text |           |          | 
+
+View "shielded_expedition.tx_deactivate_validator"
+ Column  | Type | Collation | Nullable | Default 
+---------+------+-----------+----------+---------
+ address | json |           |          | 
+
+       View "shielded_expedition.tx_ibc"
+ Column | Type | Collation | Nullable | Default 
+--------+------+-----------+----------+---------
+ data   | json |           |          | 
+
+      View "shielded_expedition.tx_init_account"
+    Column    | Type | Collation | Nullable | Default 
+--------------+------+-----------+----------+---------
+ public_keys  | text |           |          | 
+ vp_code_hash | text |           |          | 
+ threshold    | text |           |          | 
+
+        View "shielded_expedition.tx_init_proposal"
+       Column       | Type | Collation | Nullable | Default 
+--------------------+------+-----------+----------+---------
+ id                 | text |           |          | 
+ content            | text |           |          | 
+ author             | text |           |          | 
+ rtype              | text |           |          | 
+ voting_start_epoch | text |           |          | 
+ voting_end_epoch   | text |           |          | 
+ grace_epoch        | text |           |          | 
+
+View "shielded_expedition.tx_reactivate_validator"
+ Column  | Type | Collation | Nullable | Default 
+---------+------+-----------+----------+---------
+ address | json |           |          | 
+
+         View "shielded_expedition.tx_redelegate"
+      Column      | Type | Collation | Nullable | Default 
+------------------+------+-----------+----------+---------
+ redel_bond_start | text |           |          | 
+ src_validator    | text |           |          | 
+ bond_start       | text |           |          | 
+ amount           | text |           |          | 
+
+  View "shielded_expedition.tx_resign_steward"
+ Column  | Type | Collation | Nullable | Default 
+---------+------+-----------+----------+---------
+ address | json |           |          | 
+
+      View "shielded_expedition.tx_reveal_pk"
+   Column   | Type | Collation | Nullable | Default 
+------------+------+-----------+----------+---------
+ public_key | json |           |          | 
+
+    View "shielded_expedition.tx_transfert"
+ Column | Type | Collation | Nullable | Default 
+--------+------+-----------+----------+---------
+ source | text |           |          | 
+ target | text |           |          | 
+ token  | text |           |          | 
+ amount | text |           |          | 
+
+       View "shielded_expedition.tx_unbond"
+  Column   | Type | Collation | Nullable | Default 
+-----------+------+-----------+----------+---------
+ validator | text |           |          | 
+ amount    | text |           |          | 
+ source    | text |           |          | 
+
+ View "shielded_expedition.tx_unjail_validator"
+ Column  | Type | Collation | Nullable | Default 
+---------+------+-----------+----------+---------
+ address | json |           |          | 
+
+     View "shielded_expedition.tx_update_account"
+    Column    | Type | Collation | Nullable | Default 
+--------------+------+-----------+----------+---------
+ addr         | text |           |          | 
+ vp_code_hash | text |           |          | 
+ public_keys  | text |           |          | 
+ threshold    | text |           |          | 
+
+View "shielded_expedition.tx_update_steward_commission"
+   Column   | Type | Collation | Nullable | Default 
+------------+------+-----------+----------+---------
+ steward    | text |           |          | 
+ commission | text |           |          | 
+
+     View "shielded_expedition.tx_vote_proposal"
+   Column    | Type | Collation | Nullable | Default 
+-------------+------+-----------+----------+---------
+ id          | text |           |          | 
+ vote        | text |           |          | 
+ voter       | text |           |          | 
+ delegations | text |           |          | 
+
+      View "shielded_expedition.tx_withdraw"
+  Column   | Type | Collation | Nullable | Default 
+-----------+------+-----------+----------+---------
+ validator | json |           |          | 
+ source    | json |           |          | 
+
+```
 
 ## Indexer logic
 

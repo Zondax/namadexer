@@ -84,3 +84,28 @@ This endpoint will look for a vote proposal identified by proposal_id(integer)
 ```
 $ curl -H 'Content-Type: application/json' localhost:30303/tx/vote_proposal/1
 ```
+
+### /account/updates/:account_id
+
+Retrieve the updates of a specific account.
+
+```
+$ curl -H 'Content-Type: application/json' localhost:30303/account/updates/tnam1qqx0p2jus8hjvnxf7clqnn58gcredde02szr9d2r
+```
+
+
+### /address/:address
+
+Retrieve the all the transactions linked to this address (either as a target or source).
+
+```
+$ curl -H 'Content-Type: application/json' localhost:30303/address/tnam1qqx0p2jus8hjvnxf7clqnn58gcredde02szr9d2r
+```
+
+### /validator/:validator_address/uptime
+
+Return the validator update on certain number of blocks (by default 500 blocks)
+
+```
+$ curl -H 'Content-Type: application/json' localhost:30303/validator/tnam1qqx0p2jus8hjvnxf7clqnn58gcredde02szr9d2r/uptime?start=0&end=500
+```
