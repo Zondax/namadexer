@@ -28,7 +28,6 @@ use namada_sdk::{
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::Row as TRow;
 use sqlx::{query, QueryBuilder, Transaction};
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tendermint::block::Block;
@@ -39,7 +38,7 @@ use tendermint_rpc::endpoint::block_results;
 use tracing::{debug, info, instrument};
 
 use crate::{
-    DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_DURATION,
+    CHECKSUMS, DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_DURATION,
     DB_SAVE_EVDS_DURATION, DB_SAVE_TXS_DURATION, INDEXER_LAST_SAVE_BLOCK_HEIGHT, MASP_ADDR,
 };
 
@@ -238,11 +237,10 @@ impl Database {
 
     /// Inner implementation that uses a postgres-transaction
     /// to ensure database coherence.
-    #[instrument(skip(block, block_results, checksums_map, sqlx_tx))]
+    #[instrument(skip(block, block_results, sqlx_tx))]
     async fn save_block_impl<'a>(
         block: &Block,
         block_results: &block_results::Response,
-        checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
     ) -> Result<(), Error> {
@@ -338,7 +336,6 @@ impl Database {
             block_id,
             block.header.height.value(),
             block_results,
-            checksums_map,
             sqlx_tx,
             network,
         )
@@ -348,12 +345,11 @@ impl Database {
     }
 
     /// Save a block and commit database
-    #[instrument(skip(self, block, block_results, checksums_map))]
+    #[instrument(skip(self, block, block_results))]
     pub async fn save_block(
         &self,
         block: &Block,
         block_results: &block_results::Response,
-        checksums_map: &HashMap<String, String>,
     ) -> Result<(), Error> {
         let instant = tokio::time::Instant::now();
         // Lets use postgres transaction internally for 2 reasons:
@@ -365,14 +361,7 @@ impl Database {
         // succeeded.
         let mut sqlx_tx = self.transaction().await?;
 
-        Self::save_block_impl(
-            block,
-            block_results,
-            checksums_map,
-            &mut sqlx_tx,
-            self.network.as_str(),
-        )
-        .await?;
+        Self::save_block_impl(block, block_results, &mut sqlx_tx, self.network.as_str()).await?;
 
         let res = sqlx_tx.commit().await.map_err(Error::from);
 
@@ -501,15 +490,14 @@ impl Database {
     /// It is up to the caller to commit the operation.
     /// this method is meant to be used when caller is saving
     /// many blocks, and can commit after it.
-    #[instrument(skip(block, block_results, checksums_map, sqlx_tx, network))]
+    #[instrument(skip(block, block_results, sqlx_tx, network))]
     pub async fn save_block_tx<'a>(
         block: &Block,
         block_results: &block_results::Response,
-        checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
     ) -> Result<(), Error> {
-        Self::save_block_impl(block, block_results, checksums_map, sqlx_tx, network).await
+        Self::save_block_impl(block, block_results, sqlx_tx, network).await
     }
 
     /// Save all the evidences in the list, it is up to the caller to
@@ -621,13 +609,12 @@ impl Database {
     /// Save all the transactions in txs, it is up to the caller to
     /// call sqlx_tx.commit().await?; for the changes to take place in
     /// database.
-    #[instrument(skip(txs, block_id, sqlx_tx, checksums_map, block_results, network))]
+    #[instrument(skip(txs, block_id, sqlx_tx, block_results, network))]
     async fn save_transactions<'a>(
         txs: &[Vec<u8>],
         block_id: &[u8],
         block_height: u64,
         block_results: &block_results::Response,
-        checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
     ) -> Result<(), Error> {
@@ -724,7 +711,7 @@ impl Database {
 
                 let code_hex = hex::encode(code.as_slice());
                 let unknown_type = "unknown".to_string();
-                let type_tx = checksums_map.get(&code_hex).unwrap_or(&unknown_type);
+                let type_tx = CHECKSUMS.get(&code_hex).unwrap_or(&unknown_type);
 
                 // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
                 // if the transaction has failed don't try to decode because the changes are not included and the data might not be correct

@@ -1,5 +1,4 @@
 use crate::config::IndexerConfig;
-use crate::utils::load_checksums;
 use futures::stream::StreamExt;
 use futures_util::pin_mut;
 use futures_util::Stream;
@@ -196,14 +195,6 @@ pub async fn start_indexing(
 
     /********************
      *
-     *  Load checksums
-     *
-     ********************/
-
-    let checksums_map = load_checksums()?;
-
-    /********************
-     *
      *  Init RPC
      *
      ********************/
@@ -232,7 +223,7 @@ pub async fn start_indexing(
     // Block consumer that stores block into the database
     while let Some(block) = rx.recv().await {
         // block is now the block info and the block results
-        if let Err(e) = db.save_block(&block.0, &block.1, &checksums_map).await {
+        if let Err(e) = db.save_block(&block.0, &block.1).await {
             // shutdown producer task
             shutdown.store(true, Ordering::Relaxed);
             tracing::error!("Closing block producer task due to an error saving last block: {e}");
