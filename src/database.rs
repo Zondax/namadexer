@@ -674,25 +674,27 @@ impl Database {
             if let TxType::Decrypted(..) = tx.header().tx_type {
                 // For unknown reason the header has to be updated before hashing it for its id (https://github.com/Zondax/namadexer/issues/23)
                 hash_id = tx.clone().update_header(TxType::Raw).header_hash().to_vec();
+                let hash_id_str = hex::encode(&hash_id);
 
-                // Look for the return code in the block results
-                let end_events = block_results.end_block_events.clone().unwrap(); // Safe to use unwrap because if it is not present then something is broken.
+                // Safe to use unwrap because if it is not present then something is broken.
+                let end_events = block_results.end_block_events.clone().unwrap();
 
-                // Look for the reurn code associated to the tx
-                for event in end_events {
-                    for attr in event.attributes.iter() {
-                        // We look to confirm hash of transaction
-                        if attr.key == "hash"
-                            && attr.value.to_ascii_lowercase() == hex::encode(&hash_id)
-                        {
-                            // Now we look for the return code
-                            for attr in event.attributes.iter() {
-                                if attr.key == "code" {
-                                    // using unwrap here is ok because we assume it is always going to be a number unless there is a bug in the node
-                                    return_code = Some(attr.value.parse().unwrap());
-                                }
-                            }
-                        }
+                // filter to get the matching event for hash_id
+                let matching_event = end_events.iter().find(|event| {
+                    event.attributes.iter().any(|attr| {
+                        attr.key == "hash" && attr.value.to_ascii_lowercase() == hash_id_str
+                    })
+                });
+
+                // now for the event get its attribute and parse the return code
+                if let Some(event) = matching_event {
+                    // Now, look for the "code" attribute in the found event
+                    if let Some(code_attr) = event.attributes.iter().find(|attr| attr.key == "code")
+                    {
+                        // Parse the code value.
+                        // It could be possible to ignore the error by converting the result
+                        // to an Option<i32> but it is better to fail if the value is not a number.
+                        return_code = Some(code_attr.value.parse()?);
                     }
                 }
 
