@@ -1,8 +1,8 @@
 // Generate tests vectors blocks
-use namada_sdk::tendermint::block::Height;
-use namada_sdk::tendermint_rpc::{Client, HttpClient};
 use std::fs::File;
 use std::io::Write;
+use tendermint::block::Height;
+use tendermint_rpc::{self, Client, HttpClient};
 
 const URL: &str = "http://194.163.180.253:26657";
 const CURRENT_HEIGHT: u32 = 1;
