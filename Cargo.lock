@@ -4057,6 +4057,7 @@ dependencies = [
  "metrics",
  "metrics-exporter-prometheus",
  "namada_sdk",
+ "once_cell",
  "opentelemetry",
  "opentelemetry-jaeger",
  "opentelemetry_api",

@@ -28,7 +28,6 @@ use namada_sdk::{
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow as Row};
 use sqlx::Row as TRow;
 use sqlx::{query, QueryBuilder, Transaction};
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tendermint::block::Block;
@@ -39,7 +38,7 @@ use tendermint_rpc::endpoint::block_results;
 use tracing::{debug, info, instrument};
 
 use crate::{
-    DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_DURATION,
+    CHECKSUMS, DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_DURATION,
     DB_SAVE_EVDS_DURATION, DB_SAVE_TXS_DURATION, INDEXER_LAST_SAVE_BLOCK_HEIGHT, MASP_ADDR,
 };
 
@@ -238,11 +237,10 @@ impl Database {
 
     /// Inner implementation that uses a postgres-transaction
     /// to ensure database coherence.
-    #[instrument(skip(block, block_results, checksums_map, sqlx_tx))]
+    #[instrument(skip(block, block_results, sqlx_tx))]
     async fn save_block_impl<'a>(
         block: &Block,
         block_results: &block_results::Response,
-        checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
     ) -> Result<(), Error> {
@@ -338,7 +336,6 @@ impl Database {
             block_id,
             block.header.height.value(),
             block_results,
-            checksums_map,
             sqlx_tx,
             network,
         )
@@ -348,12 +345,11 @@ impl Database {
     }
 
     /// Save a block and commit database
-    #[instrument(skip(self, block, block_results, checksums_map))]
+    #[instrument(skip(self, block, block_results))]
     pub async fn save_block(
         &self,
         block: &Block,
         block_results: &block_results::Response,
-        checksums_map: &HashMap<String, String>,
     ) -> Result<(), Error> {
         let instant = tokio::time::Instant::now();
         // Lets use postgres transaction internally for 2 reasons:
@@ -365,14 +361,7 @@ impl Database {
         // succeeded.
         let mut sqlx_tx = self.transaction().await?;
 
-        Self::save_block_impl(
-            block,
-            block_results,
-            checksums_map,
-            &mut sqlx_tx,
-            self.network.as_str(),
-        )
-        .await?;
+        Self::save_block_impl(block, block_results, &mut sqlx_tx, self.network.as_str()).await?;
 
         let res = sqlx_tx.commit().await.map_err(Error::from);
 
@@ -501,15 +490,14 @@ impl Database {
     /// It is up to the caller to commit the operation.
     /// this method is meant to be used when caller is saving
     /// many blocks, and can commit after it.
-    #[instrument(skip(block, block_results, checksums_map, sqlx_tx, network))]
+    #[instrument(skip(block, block_results, sqlx_tx, network))]
     pub async fn save_block_tx<'a>(
         block: &Block,
         block_results: &block_results::Response,
-        checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
     ) -> Result<(), Error> {
-        Self::save_block_impl(block, block_results, checksums_map, sqlx_tx, network).await
+        Self::save_block_impl(block, block_results, sqlx_tx, network).await
     }
 
     /// Save all the evidences in the list, it is up to the caller to
@@ -621,13 +609,12 @@ impl Database {
     /// Save all the transactions in txs, it is up to the caller to
     /// call sqlx_tx.commit().await?; for the changes to take place in
     /// database.
-    #[instrument(skip(txs, block_id, sqlx_tx, checksums_map, block_results, network))]
+    #[instrument(skip(txs, block_id, sqlx_tx, block_results, network))]
     async fn save_transactions<'a>(
         txs: &[Vec<u8>],
         block_id: &[u8],
         block_height: u64,
         block_results: &block_results::Response,
-        checksums_map: &HashMap<String, String>,
         sqlx_tx: &mut Transaction<'a, sqlx::Postgres>,
         network: &str,
     ) -> Result<(), Error> {
@@ -687,25 +674,27 @@ impl Database {
             if let TxType::Decrypted(..) = tx.header().tx_type {
                 // For unknown reason the header has to be updated before hashing it for its id (https://github.com/Zondax/namadexer/issues/23)
                 hash_id = tx.clone().update_header(TxType::Raw).header_hash().to_vec();
+                let hash_id_str = hex::encode(&hash_id);
 
-                // Look for the return code in the block results
-                let end_events = block_results.end_block_events.clone().unwrap(); // Safe to use unwrap because if it is not present then something is broken.
+                // Safe to use unwrap because if it is not present then something is broken.
+                let end_events = block_results.end_block_events.clone().unwrap();
 
-                // Look for the reurn code associated to the tx
-                for event in end_events {
-                    for attr in event.attributes.iter() {
-                        // We look to confirm hash of transaction
-                        if attr.key == "hash"
-                            && attr.value.to_ascii_lowercase() == hex::encode(&hash_id)
-                        {
-                            // Now we look for the return code
-                            for attr in event.attributes.iter() {
-                                if attr.key == "code" {
-                                    // using unwrap here is ok because we assume it is always going to be a number unless there is a bug in the node
-                                    return_code = Some(attr.value.parse().unwrap());
-                                }
-                            }
-                        }
+                // filter to get the matching event for hash_id
+                let matching_event = end_events.iter().find(|event| {
+                    event.attributes.iter().any(|attr| {
+                        attr.key == "hash" && attr.value.to_ascii_lowercase() == hash_id_str
+                    })
+                });
+
+                // now for the event get its attribute and parse the return code
+                if let Some(event) = matching_event {
+                    // Now, look for the "code" attribute in the found event
+                    if let Some(code_attr) = event.attributes.iter().find(|attr| attr.key == "code")
+                    {
+                        // Parse the code value.
+                        // It could be possible to ignore the error by converting the result
+                        // to an Option<i32> but it is better to fail if the value is not a number.
+                        return_code = Some(code_attr.value.parse()?);
                     }
                 }
 
@@ -724,7 +713,7 @@ impl Database {
 
                 let code_hex = hex::encode(code.as_slice());
                 let unknown_type = "unknown".to_string();
-                let type_tx = checksums_map.get(&code_hex).unwrap_or(&unknown_type);
+                let type_tx = CHECKSUMS.get(&code_hex).unwrap_or(&unknown_type);
 
                 // decode tx_transfer, tx_bond and tx_unbound to store the decoded data in their tables
                 // if the transaction has failed don't try to decode because the changes are not included and the data might not be correct
