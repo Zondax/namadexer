@@ -143,7 +143,101 @@ impl Database {
             .execute(&*self.pool)
             .await?;
 
-        // And views
+        // Drop any existing views
+
+        query(views::get_drop_tx_become_validator_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_bond_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_bridge_pool_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_change_consensus_key_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_change_validator_comission_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_change_validator_metadata_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_claim_rewards_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_deactivate_validator_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_ibc_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_init_account_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_init_proposal_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_reactivate_validator_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_redelegate_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_resign_steward_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_reveal_pk_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_transfer_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_transfert_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_unbond_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_unjail_validator_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_update_account_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_update_steward_commission_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_vote_proposal_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        query(views::get_drop_tx_withdraw_view_query(&self.network).as_str())
+            .execute(&*self.pool)
+            .await?;
+
+        // Create views
         query(views::get_create_tx_become_validator_view_query(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
@@ -204,7 +298,7 @@ impl Database {
             .execute(&*self.pool)
             .await?;
 
-        query(views::get_create_tx_transfert_view_query(&self.network).as_str())
+        query(views::get_create_tx_transfer_view_query(&self.network).as_str())
             .execute(&*self.pool)
             .await?;
 
@@ -1305,3 +1399,4 @@ impl Database {
         self.pool.as_ref()
     }
 }
+
