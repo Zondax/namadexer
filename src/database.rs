@@ -1399,4 +1399,3 @@ impl Database {
         self.pool.as_ref()
     }
 }
-
