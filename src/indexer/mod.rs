@@ -2,10 +2,13 @@ use crate::config::IndexerConfig;
 use futures::stream::StreamExt;
 use futures_util::pin_mut;
 use futures_util::Stream;
+use namada_sdk::tendermint_rpc::endpoint::genesis;
+use std::process;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
+use tendermint::genesis::Genesis;
 use tendermint::block::Block;
 use tendermint::block::Height;
 use tendermint_rpc::endpoint::block_results;
@@ -13,7 +16,7 @@ use tendermint_rpc::{self, Client, HttpClient};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
-use tracing::{info, instrument};
+use tracing::{info,warn, instrument};
 
 pub mod utils;
 
@@ -201,15 +204,26 @@ pub async fn start_indexing(
 
     // Connect to a RPC
     info!("Connecting to {}", config.tendermint_addr);
-    let client = HttpClient::new(config.tendermint_addr.as_str())?;
+    let mut client = HttpClient::new(config.tendermint_addr.as_str())?;
+    info!("Getting last block");
+    let latest_block = client.latest_block().await?;
+    info!("Current block tip {}", &latest_block.block.header.height);
+
+    // Do we have the rpc for the block height we want ? For that we check the genesis block
+    let genesis_block: Genesis<Option<serde_json::Value>> = client.genesis().await?;
+
+    if genesis_block.initial_height > current_height.into() {
+        warn!("RPC doesn't allow fetching previous block. Switching to a fallback node to sync pre-fork blocks.");
+        // switching to the pre-fork rpc Zondax provide
+        client = HttpClient::new("https://api.zondax.ch/nam/node/testnet")?;
+    }
+
 
     /********************
      *
      *  Start indexing
      *
      ********************/
-    let latest_block = client.latest_block().await?;
-    info!("Current block tip {}", &latest_block.block.header.height);
 
     let shutdown = Arc::new(AtomicBool::new(false));
 
@@ -235,6 +249,11 @@ pub async fn start_indexing(
         info!("Block: {} saved", block.0.header.height.value());
 
         let height = Height::from(current_height);
+
+        if (current_height + 1) as i64 == genesis_block.initial_height {
+            warn!("We have synced pre-fork data. The indexer will stop. Please restart it with the post-fork RPC url.");
+            process::exit(0);
+        }
 
         // create indexes if they have not been created yet
         if !has_indexes && latest_block.block.header.height == height {
