@@ -16,7 +16,12 @@ use crate::{
 #[serde(untagged)]
 pub enum LatestBlock {
     LastBlock(Box<BlockInfo>),
-    LatestBlocks(Vec<BlockInfo>),
+    LatestBlocks(LatestBlocks),
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct LatestBlocks {
+    pub blocks: Vec<BlockInfo>,
 }
 
 async fn get_tx_hashes(
@@ -88,7 +93,7 @@ pub async fn get_last_block(
 
     if let Some(n) = num {
         let rows = state.db.get_lastest_blocks(n, offset).await?;
-        let mut blocks: Vec<BlockInfo> = vec![];
+        let mut blocks: LatestBlocks = LatestBlocks { blocks: vec![] };
 
         for row in rows {
             let mut block = BlockInfo::try_from(&row)?;
@@ -96,7 +101,7 @@ pub async fn get_last_block(
             let block_id: Vec<u8> = row.try_get("block_id")?;
             get_tx_hashes(&state, &mut block, &block_id).await?;
 
-            blocks.push(block);
+            blocks.blocks.push(block);
         }
 
         Ok(Json(LatestBlock::LatestBlocks(blocks)))
