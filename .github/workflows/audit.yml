@@ -10,8 +10,14 @@ jobs:
   security_audit:
     runs-on: zondax-runners
     steps:
+      - name: Install dependencies
+        run:  |
+          sudo apt-get update
+          sudo apt-get install -y curl build-essential
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
       # - uses: EmbarkStudios/cargo-deny-action@v1
+      - name: Install cargo-deny
+        run: cargo install --locked cargo-deny
       - name: Scan for vulnerabilities
         run: cargo deny check advisories
