@@ -2,7 +2,6 @@ use crate::config::IndexerConfig;
 use futures::stream::StreamExt;
 use futures_util::pin_mut;
 use futures_util::Stream;
-use namada_sdk::tendermint_rpc::endpoint::genesis;
 use std::process;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
