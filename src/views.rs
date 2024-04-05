@@ -313,4 +313,3 @@ pub fn get_create_tx_withdraw_view_query(network: &str) -> String {
     data->'source' AS source
     FROM {network}.transactions WHERE code = '\\x69560777e2656b2872a49080c51bb5b1a498a7ffd79dae491d36b301a1b012e6';")
 }
-
