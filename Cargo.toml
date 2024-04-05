@@ -77,10 +77,10 @@ criterion = { version = "0.5.1", features = [
 httpc-test = "0.1.4"
 
 [patch.crates-io]
-tendermint        = { git = "https://github.com/informalsystems/tendermint-rs.git", branch = "romac/allow-misformed-block" }
-tendermint-rpc    = { git = "https://github.com/informalsystems/tendermint-rs.git", branch = "romac/allow-misformed-block" }
-tendermint-proto  = { git = "https://github.com/informalsystems/tendermint-rs.git", branch = "romac/allow-misformed-block" }
-tendermint-config = { git = "https://github.com/informalsystems/tendermint-rs.git", branch = "romac/allow-misformed-block" }
+tendermint        = { git = "https://github.com/informalsystems/tendermint-rs.git", branch = "main" }
+tendermint-rpc    = { git = "https://github.com/informalsystems/tendermint-rs.git", branch = "main" }
+tendermint-proto  = { git = "https://github.com/informalsystems/tendermint-rs.git", branch = "main" }
+tendermint-config = { git = "https://github.com/informalsystems/tendermint-rs.git", branch = "main" }
 
 [features]
 default = []

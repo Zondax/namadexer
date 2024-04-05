@@ -3714,7 +3714,7 @@ dependencies = [
  "k256",
  "masp_primitives",
  "namada_macros",
- "num-derive 0.3.3",
+ "num-derive",
  "num-integer",
  "num-rational 0.4.1",
  "num-traits",
@@ -4015,7 +4015,7 @@ dependencies = [
  "masp_primitives",
  "namada_core",
  "namada_gas",
- "num-derive 0.3.3",
+ "num-derive",
  "num-traits",
  "prost 0.12.3",
  "prost-types 0.12.3",
@@ -4214,17 +4214,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num-derive"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed3955f1a9c7c0c15e092f9c887db08b1fc683305fdf6eb6684f22555355e202"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.41",
-]
-
-[[package]]
 name = "num-integer"
 version = "0.1.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4287,7 +4276,7 @@ checksum = "aa9b5179e82f0867b23e0b9b822493821f9345561f271364f409c8e4a058367d"
 dependencies = [
  "lazy_static",
  "num 0.4.1",
- "num-derive 0.3.3",
+ "num-derive",
  "num-traits",
  "serde",
  "serde_derive",
@@ -6465,7 +6454,7 @@ dependencies = [
 [[package]]
 name = "tendermint"
 version = "0.35.0"
-source = "git+https://github.com/informalsystems/tendermint-rs.git?branch=romac/allow-misformed-block#3b9f94e48e140197b9ec137cd5dfb99510438a1b"
+source = "git+https://github.com/informalsystems/tendermint-rs.git?branch=main#c45f593e06eb404259bdd14c4d90c62f73943381"
 dependencies = [
  "bytes",
  "digest 0.10.7",
@@ -6507,7 +6496,7 @@ dependencies = [
 [[package]]
 name = "tendermint-config"
 version = "0.35.0"
-source = "git+https://github.com/informalsystems/tendermint-rs.git?branch=romac/allow-misformed-block#3b9f94e48e140197b9ec137cd5dfb99510438a1b"
+source = "git+https://github.com/informalsystems/tendermint-rs.git?branch=main#c45f593e06eb404259bdd14c4d90c62f73943381"
 dependencies = [
  "flex-error",
  "serde",
@@ -6538,7 +6527,7 @@ checksum = "2cc728a4f9e891d71adf66af6ecaece146f9c7a11312288a3107b3e1d6979aaf"
 dependencies = [
  "bytes",
  "flex-error",
- "num-derive 0.3.3",
+ "num-derive",
  "num-traits",
  "prost 0.12.3",
  "prost-types 0.12.3",
@@ -6551,12 +6540,10 @@ dependencies = [
 [[package]]
 name = "tendermint-proto"
 version = "0.35.0"
-source = "git+https://github.com/informalsystems/tendermint-rs.git?branch=romac/allow-misformed-block#3b9f94e48e140197b9ec137cd5dfb99510438a1b"
+source = "git+https://github.com/informalsystems/tendermint-rs.git?branch=main#c45f593e06eb404259bdd14c4d90c62f73943381"
 dependencies = [
  "bytes",
  "flex-error",
- "num-derive 0.4.2",
- "num-traits",
  "prost 0.12.3",
  "prost-types 0.12.3",
  "serde",
@@ -6596,7 +6583,7 @@ dependencies = [
 [[package]]
 name = "tendermint-rpc"
 version = "0.35.0"
-source = "git+https://github.com/informalsystems/tendermint-rs.git?branch=romac/allow-misformed-block#3b9f94e48e140197b9ec137cd5dfb99510438a1b"
+source = "git+https://github.com/informalsystems/tendermint-rs.git?branch=main#c45f593e06eb404259bdd14c4d90c62f73943381"
 dependencies = [
  "async-trait",
  "bytes",
