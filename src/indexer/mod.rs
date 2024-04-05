@@ -8,15 +8,15 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
-use tendermint::genesis::Genesis;
 use tendermint::block::Block;
 use tendermint::block::Height;
+use tendermint::genesis::Genesis;
 use tendermint_rpc::endpoint::block_results;
 use tendermint_rpc::{self, Client, HttpClient};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
-use tracing::{info,warn, instrument};
+use tracing::{info, instrument, warn};
 
 pub mod utils;
 
@@ -217,7 +217,6 @@ pub async fn start_indexing(
         // switching to the pre-fork rpc Zondax provide
         client = HttpClient::new("https://api.zondax.ch/nam/node/testnet")?;
     }
-
 
     /********************
      *
