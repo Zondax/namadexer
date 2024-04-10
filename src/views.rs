@@ -229,7 +229,7 @@ pub fn get_create_tx_transfer_view_query(network: &str) -> String {
     data->>'amount' AS amount,
     data->>'key' AS key,
     data->>'shielded' AS shielded
-    FROM {network}.transactions WHERE code = '\\x0960374d23acbac1feb27b3888095859217936c900cef54e559d215cec3206ef';")
+    FROM {network}.transactions WHERE code = '\\x0960374d23acbac1feb27b3888095859217936c900cef54e559d215cec3206ef' AND return_code = 0;")
 }
 
 pub fn get_drop_tx_unbond_view_query(network: &str) -> String {
@@ -298,7 +298,7 @@ pub fn get_create_tx_vote_proposal_view_query(network: &str) -> String {
     data->>'vote' AS vote,
     data->>'voter' AS voter,
     data->>'delegations' AS delegations
-    FROM {network}.transactions WHERE code = '\\xccdbe81f664ca6c2caa11426927093dc10ed95e75b3f2f45bffd8514fee47cd0';")
+    FROM {network}.transactions WHERE code = '\\xccdbe81f664ca6c2caa11426927093dc10ed95e75b3f2f45bffd8514fee47cd0' AND return_code = 0;")
 }
 
 pub fn get_drop_tx_withdraw_view_query(network: &str) -> String {
