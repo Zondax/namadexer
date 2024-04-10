@@ -49,16 +49,8 @@ async fn get_block(block_height: u32, chain_name: &str, client: &HttpClient) -> 
         match response {
             Ok(resp) => {
                 info!("Got block {}", block_height);
-                let labels = [(
-                    "indexer_get_block: ",
-                    resp.block.header.height.value().to_string(),
-                )];
 
-                metrics::histogram!(
-                    crate::INDEXER_GET_BLOCK_DURATION,
-                    dur.as_secs_f64(),
-                    &labels
-                );
+                metrics::histogram!(crate::INDEXER_GET_BLOCK_DURATION, dur.as_secs_f64());
 
                 // update the gauge indicating last block height retrieved.
                 metrics::gauge!(

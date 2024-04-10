@@ -466,10 +466,7 @@ impl Database {
             status = e.to_string();
         }
 
-        let labels = [
-            ("save_block", block.header.height.value().to_string()),
-            ("status", status),
-        ];
+        let labels = [("status", status)];
 
         histogram!(DB_SAVE_BLOCK_DURATION, dur.as_secs_f64() * 1000.0, &labels);
 
