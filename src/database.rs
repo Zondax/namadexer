@@ -148,7 +148,6 @@ impl Database {
             .execute(&*self.pool)
             .await?;
 
-
         // Drop any existing views
 
         query(views::get_drop_tx_become_validator_view_query(&self.network).as_str())
