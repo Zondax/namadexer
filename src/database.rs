@@ -143,6 +143,12 @@ impl Database {
             .execute(&*self.pool)
             .await?;
 
+        // Alter table
+        query(&format!("ALTER TABLE {}.transactions ADD COLUMN IF NOT EXISTS code_type TEXT, ADD COLUMN IF NOT EXISTS  memo BYTEA; ", self.network))
+            .execute(&*self.pool)
+            .await?;
+
+
         // Drop any existing views
 
         query(views::get_drop_tx_become_validator_view_query(&self.network).as_str())
@@ -740,6 +746,8 @@ impl Database {
                     fee_token,
                     gas_limit_multiplier,
                     code,
+                    code_type,
+                    memo,
                     data,
                     return_code
                 )",
@@ -759,6 +767,8 @@ impl Database {
             let tx = Tx::try_from(t.as_slice()).map_err(|e| Error::InvalidTxData(e.to_string()))?;
 
             let mut code = Default::default();
+            let mut code_type: String = "none".to_string();
+            let memo: Vec<u8> = tx.memo().unwrap_or_default();
             let mut txid_wrapper: Vec<u8> = vec![];
             let mut hash_id = tx.header_hash().to_vec();
             let mut data_json: serde_json::Value = json!(null);
@@ -816,7 +826,7 @@ impl Database {
                         .data()
                         .ok_or(Error::InvalidTxData("tx has no data".into()))?;
 
-                    dbg!(type_tx.as_str());
+                    code_type = type_tx.to_string();
 
                     info!("Saving {} transaction", type_tx);
 
@@ -957,6 +967,8 @@ impl Database {
                 fee_token,
                 gas_limit_multiplier,
                 code,
+                code_type,
+                memo,
                 data_json,
                 return_code,
             ));
@@ -981,6 +993,8 @@ impl Database {
                     fee_token,
                     fee_gas_limit_multiplier,
                     code,
+                    code_type,
+                    memo,
                     data,
                     return_code,
                 )| {
@@ -992,6 +1006,8 @@ impl Database {
                         .push_bind(fee_token)
                         .push_bind(fee_gas_limit_multiplier)
                         .push_bind(code)
+                        .push_bind(code_type)
+                        .push_bind(memo)
                         .push_bind(data)
                         .push_bind(return_code);
                 },
