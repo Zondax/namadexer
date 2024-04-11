@@ -55,7 +55,7 @@ benchmarks: download-checksum
 	INDEXER_CONFIG_PATH="${PWD}/config/Settings.toml" PATH="${PWD}/protoc/bin:${PATH}" cargo bench 
 
 compose:
-	docker compose -f contrib/docker-compose.yaml up
+	docker-compose -f contrib/docker-compose.yaml up
 
 test: download-checksum
 	cargo test save_block -- --nocapture
