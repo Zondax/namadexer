@@ -38,8 +38,9 @@ use tendermint_rpc::endpoint::block_results;
 use tracing::{debug, info, instrument};
 
 use crate::{
-    CHECKSUMS, DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_DURATION,
-    DB_SAVE_EVDS_DURATION, DB_SAVE_TXS_DURATION, INDEXER_LAST_SAVE_BLOCK_HEIGHT, MASP_ADDR,
+    CHECKSUMS, DB_SAVE_BLOCK_COUNTER, DB_SAVE_BLOCK_DURATION, DB_SAVE_COMMIT_SIG_BATCH_SIZE,
+    DB_SAVE_COMMIT_SIG_DURATION, DB_SAVE_EVDS_BATCH_SIZE, DB_SAVE_EVDS_DURATION,
+    DB_SAVE_TXS_BATCH_SIZE, DB_SAVE_TXS_DURATION, INDEXER_LAST_SAVE_BLOCK_HEIGHT, MASP_ADDR,
 };
 
 use crate::tables::{
@@ -531,12 +532,16 @@ impl Database {
             let labels = [
                 ("bulk_insert", "signatures".to_string()),
                 ("status", "Ok".to_string()),
-                ("num_signatures", num_signatures.to_string()),
             ];
             let dur = instant.elapsed();
             histogram!(
                 DB_SAVE_COMMIT_SIG_DURATION,
                 dur.as_secs_f64() * 1000.0,
+                &labels
+            );
+            histogram!(
+                DB_SAVE_COMMIT_SIG_BATCH_SIZE,
+                num_signatures as f64,
                 &labels
             );
 
@@ -570,12 +575,16 @@ impl Database {
         let labels = [
             ("bulk_insert", "signatures".to_string()),
             ("status", status),
-            ("num_signatures", num_signatures.to_string()),
         ];
 
         histogram!(
             DB_SAVE_COMMIT_SIG_DURATION,
             dur.as_secs_f64() * 1000.0,
+            &labels
+        );
+        histogram!(
+            DB_SAVE_COMMIT_SIG_BATCH_SIZE,
+            num_signatures as f64,
             &labels
         );
 
@@ -658,10 +667,11 @@ impl Database {
             let labels = [
                 ("bulk_insert", "evidences".to_string()),
                 ("status", "Ok".to_string()),
-                ("num_evidences", num_evidences.to_string()),
             ];
             let dur = instant.elapsed();
+
             histogram!(DB_SAVE_EVDS_DURATION, dur.as_secs_f64() * 1000.0, &labels);
+            histogram!(DB_SAVE_EVDS_BATCH_SIZE, num_evidences as f64, &labels);
 
             return Ok(());
         }
@@ -691,13 +701,10 @@ impl Database {
             status = e.to_string();
         }
 
-        let labels = [
-            ("bulk_insert", "evidences".to_string()),
-            ("status", status),
-            ("num_evidences", num_evidences.to_string()),
-        ];
+        let labels = [("bulk_insert", "evidences".to_string()), ("status", status)];
 
         histogram!(DB_SAVE_EVDS_DURATION, dur.as_secs_f64() * 1000.0, &labels);
+        histogram!(DB_SAVE_EVDS_BATCH_SIZE, num_evidences as f64, &labels);
 
         res
     }
@@ -721,12 +728,13 @@ impl Database {
             let labels = [
                 ("bulk_insert", "transactions".to_string()),
                 ("status", "Ok".to_string()),
-                ("num_transactions", 0.to_string()),
             ];
 
             let dur = instant.elapsed();
 
             histogram!(DB_SAVE_TXS_DURATION, dur.as_secs_f64() * 1000.0, &labels);
+            histogram!(DB_SAVE_TXS_BATCH_SIZE, 0.0, &labels);
+
             return Ok(());
         }
 
@@ -1024,10 +1032,10 @@ impl Database {
         let labels = [
             ("bulk_insert", "transactions".to_string()),
             ("status", status),
-            ("num_transactions", num_transactions.to_string()),
         ];
 
         histogram!(DB_SAVE_TXS_DURATION, dur.as_secs_f64() * 1000.0, &labels);
+        histogram!(DB_SAVE_TXS_BATCH_SIZE, num_transactions as f64, &labels);
 
         res
     }
