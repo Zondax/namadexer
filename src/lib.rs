@@ -23,11 +23,14 @@ use std::collections::HashMap;
 use once_cell::sync::Lazy;
 
 pub const INDEXER_GET_BLOCK_DURATION: &str = "indexer_get_block_duration";
-const DB_SAVE_BLOCK_COUNTER: &str = "db_save_block_count";
-const DB_SAVE_BLOCK_DURATION: &str = "db_save_block_duration";
-const DB_SAVE_TXS_DURATION: &str = "db_save_transactions_duration";
-const DB_SAVE_EVDS_DURATION: &str = "db_save_evidences_duration";
-const DB_SAVE_COMMIT_SIG_DURATION: &str = "db_save_commit_sig_duration";
+const DB_SAVE_BLOCK_COUNTER: &str = "db_save_count_block";
+const DB_SAVE_BLOCK_DURATION: &str = "db_save_duration_block";
+const DB_SAVE_TXS_DURATION: &str = "db_save_duration_transactions";
+const DB_SAVE_TXS_BATCH_SIZE: &str = "db_save_batch_size_transactions";
+const DB_SAVE_EVDS_DURATION: &str = "db_save_duration_evidences";
+const DB_SAVE_EVDS_BATCH_SIZE: &str = "db_save_batch_size_evidences";
+const DB_SAVE_COMMIT_SIG_DURATION: &str = "db_save_duration_commit_sig";
+const DB_SAVE_COMMIT_SIG_BATCH_SIZE: &str = "db_save_batch_size_commit_sig";
 const INDEXER_LAST_SAVE_BLOCK_HEIGHT: &str = "indexer_last_save_block_height";
 const INDEXER_LAST_GET_BLOCK_HEIGHT: &str = "indexer_last_get_block_height";
 
