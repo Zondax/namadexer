@@ -57,9 +57,6 @@ pub async fn get_block_by_hash(
     };
     let mut block = BlockInfo::try_from(&row)?;
 
-    let block_id: Vec<u8> = row.try_get("block_id")?;
-    get_tx_hashes(&state, &mut block, &block_id).await?;
-
     Ok(Json(Some(block)))
 }
 
@@ -75,9 +72,6 @@ pub async fn get_block_by_height(
     };
 
     let mut block = BlockInfo::try_from(&row)?;
-
-    let block_id: Vec<u8> = row.try_get("block_id")?;
-    get_tx_hashes(&state, &mut block, &block_id).await?;
 
     Ok(Json(Some(block)))
 }
