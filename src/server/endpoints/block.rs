@@ -98,9 +98,6 @@ pub async fn get_last_block(
         for row in rows {
             let mut block = BlockInfo::try_from(&row)?;
 
-            let block_id: Vec<u8> = row.try_get("block_id")?;
-            get_tx_hashes(&state, &mut block, &block_id).await?;
-
             blocks.blocks.push(block);
         }
 
@@ -109,9 +106,6 @@ pub async fn get_last_block(
         let row = state.db.get_last_block().await?;
 
         let mut block = BlockInfo::try_from(&row)?;
-
-        let block_id: Vec<u8> = row.try_get("block_id")?;
-        get_tx_hashes(&state, &mut block, &block_id).await?;
 
         Ok(Json(LatestBlock::LastBlock(Box::new(block))))
     }
