@@ -1099,7 +1099,7 @@ impl Database {
         let str = format!("SELECT b.*, txs FROM {0}.blocks b LEFT JOIN (SELECT block_id, JSON_AGG(JSON_BUILD_OBJECT('hash_id', encode(t.hash, 'hex'), 'tx_type', t.tx_type)) AS txs FROM {0}.transactions t GROUP BY t.block_id) t ON b.block_id = t.block_id WHERE b.header_height = $1;", self.network);
 
         query(&str)
-            .bind(block_height)
+            .bind(block_height as i32)
             .fetch_optional(&*self.pool)
             .await
             .map_err(Error::from)
