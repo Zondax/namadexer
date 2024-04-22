@@ -1113,7 +1113,7 @@ impl Database {
     #[instrument(skip(self))]
     /// Returns the latest block, otherwise returns an Error.
     pub async fn get_last_block(&self) -> Result<Row, Error> {
-        let str = format!("SELECT * FROM {0}.{BLOCKS_TABLE_NAME} WHERE header_height = (SELECT MAX(header_height) FROM {0}.{BLOCKS_TABLE_NAME})", self.network);
+        let str = format!("SELECT b.*, txs FROM {0}.blocks b LEFT JOIN (SELECT block_id, JSON_AGG(JSON_BUILD_OBJECT('hash_id', encode(t.hash, 'hex'), 'tx_type', t.tx_type)) AS txs FROM {0}.transactions t GROUP BY t.block_id) t ON b.block_id = t.block_id WHERE b.header_height = (SELECT MAX(header_height) FROM {0}.blocks);", self.network);
 
         // use query_one as the row matching max height is unique.
         query(&str)
@@ -1406,7 +1406,6 @@ impl Database {
         num: &i32,
         offset: Option<&i32>,
     ) -> Result<Vec<Row>, Error> {
-        //let str = format!("SELECT * FROM {0}.{BLOCKS_TABLE_NAME} ORDER BY header_height DESC LIMIT {1} OFFSET {2};", self.network, num, offset.unwrap_or(&  0));
         let str = format!("SELECT b.*, t.txs FROM {0}.blocks b LEFT JOIN (SELECT block_id, JSON_AGG(JSON_BUILD_OBJECT('hash_id', encode(t.hash, 'hex'), 'tx_type', t.tx_type)) AS txs FROM {0}.transactions t GROUP BY t.block_id) t ON b.block_id = t.block_id ORDER BY b.header_height DESC LIMIT {1} OFFSET {2};", self.network, num, offset.unwrap_or(&  0));
 
         // use query_one as the row matching max height is unique.
