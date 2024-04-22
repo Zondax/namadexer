@@ -222,7 +222,11 @@ impl TryFrom<&Row> for BlockInfo {
 
         // tx hashes
         let txs: serde_json::Value = row.try_get("txs")?;
-        let tx_hashes: Vec<TxShort> = if !txs.is_null() { serde_json::from_value(txs)? } else { vec![] };
+        let tx_hashes: Vec<TxShort> = if !txs.is_null() {
+            serde_json::from_value(txs)?
+        } else {
+            vec![]
+        };
 
         let header = Header {
             version,
