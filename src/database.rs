@@ -1096,9 +1096,10 @@ impl Database {
     /// Returns the block at `block_height` if present, otherwise returns an Error.
     #[instrument(skip(self))]
     pub async fn block_by_height(&self, block_height: u32) -> Result<Option<Row>, Error> {
-        let str = format!("SELECT b.*, txs FROM {0}.blocks b LEFT JOIN (SELECT block_id, JSON_AGG(JSON_BUILD_OBJECT('hash_id', encode(t.hash, 'hex'), 'tx_type', t.tx_type)) AS txs FROM {0}.transactions t GROUP BY t.block_id) t ON b.block_id = t.block_id WHERE b.header_height = {block_height};", self.network);
+        let str = format!("SELECT b.*, txs FROM {0}.blocks b LEFT JOIN (SELECT block_id, JSON_AGG(JSON_BUILD_OBJECT('hash_id', encode(t.hash, 'hex'), 'tx_type', t.tx_type)) AS txs FROM {0}.transactions t GROUP BY t.block_id) t ON b.block_id = t.block_id WHERE b.header_height = $1;", self.network);
 
         query(&str)
+            .bind(block_height)
             .fetch_optional(&*self.pool)
             .await
             .map_err(Error::from)
