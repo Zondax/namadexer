@@ -6,10 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::info;
 
-use crate::{
-    server::ServerState,
-    BlockInfo, Error,
-};
+use crate::{server::ServerState, BlockInfo, Error};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
