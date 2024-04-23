@@ -221,8 +221,8 @@ impl TryFrom<&Row> for BlockInfo {
         let last_commit = LastCommitInfo::read_from(row)?;
 
         // tx hashes
-        let txs: serde_json::Value = row.try_get("txs")?;
-        let tx_hashes: Vec<TxShort> = if !txs.is_null() {
+        let txs: Option<serde_json::Value> = row.try_get("txs")?;
+        let tx_hashes: Vec<TxShort> = if txs.is_some() {
             serde_json::from_value(txs)?
         } else {
             vec![]
