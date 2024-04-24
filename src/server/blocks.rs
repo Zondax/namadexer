@@ -220,6 +220,14 @@ impl TryFrom<&Row> for BlockInfo {
 
         let last_commit = LastCommitInfo::read_from(row)?;
 
+        // tx hashes
+        let txs: Option<serde_json::Value> = row.try_get("txs")?;
+        let tx_hashes: Vec<TxShort> = if let Some(txs) = txs {
+            serde_json::from_value(txs)?
+        } else {
+            vec![]
+        };
+
         let header = Header {
             version,
             chain_id,
@@ -241,7 +249,7 @@ impl TryFrom<&Row> for BlockInfo {
             block_id: HashID(block_id),
             header,
             last_commit,
-            tx_hashes: vec![],
+            tx_hashes,
         })
     }
 }

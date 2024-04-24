@@ -3,14 +3,10 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::Row as TRow;
 use std::collections::HashMap;
 use tracing::info;
 
-use crate::{
-    server::{blocks::HashID, blocks::TxShort, ServerState},
-    BlockInfo, Error,
-};
+use crate::{server::ServerState, BlockInfo, Error};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
@@ -22,25 +18,6 @@ pub enum LatestBlock {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct LatestBlocks {
     pub blocks: Vec<BlockInfo>,
-}
-
-async fn get_tx_hashes(
-    state: &ServerState,
-    block: &mut BlockInfo,
-    hash: &[u8],
-) -> Result<(), Error> {
-    let rows = state.db.get_tx_hashes_block(hash).await?;
-
-    let mut tx_hashes: Vec<TxShort> = vec![];
-    for row in rows.iter() {
-        let hash_id = HashID(row.try_get("hash")?);
-        let tx_type: String = row.try_get("tx_type")?;
-        tx_hashes.push(TxShort { tx_type, hash_id });
-    }
-
-    block.tx_hashes = tx_hashes;
-
-    Ok(())
 }
 
 pub async fn get_block_by_hash(
@@ -55,10 +32,7 @@ pub async fn get_block_by_hash(
     let Some(row) = row else {
         return Ok(Json(None));
     };
-    let mut block = BlockInfo::try_from(&row)?;
-
-    let block_id: Vec<u8> = row.try_get("block_id")?;
-    get_tx_hashes(&state, &mut block, &block_id).await?;
+    let block = BlockInfo::try_from(&row)?;
 
     Ok(Json(Some(block)))
 }
@@ -74,10 +48,7 @@ pub async fn get_block_by_height(
         return Ok(Json(None));
     };
 
-    let mut block = BlockInfo::try_from(&row)?;
-
-    let block_id: Vec<u8> = row.try_get("block_id")?;
-    get_tx_hashes(&state, &mut block, &block_id).await?;
+    let block = BlockInfo::try_from(&row)?;
 
     Ok(Json(Some(block)))
 }
@@ -96,10 +67,7 @@ pub async fn get_last_block(
         let mut blocks: LatestBlocks = LatestBlocks { blocks: vec![] };
 
         for row in rows {
-            let mut block = BlockInfo::try_from(&row)?;
-
-            let block_id: Vec<u8> = row.try_get("block_id")?;
-            get_tx_hashes(&state, &mut block, &block_id).await?;
+            let block = BlockInfo::try_from(&row)?;
 
             blocks.blocks.push(block);
         }
@@ -108,10 +76,7 @@ pub async fn get_last_block(
     } else {
         let row = state.db.get_last_block().await?;
 
-        let mut block = BlockInfo::try_from(&row)?;
-
-        let block_id: Vec<u8> = row.try_get("block_id")?;
-        get_tx_hashes(&state, &mut block, &block_id).await?;
+        let block = BlockInfo::try_from(&row)?;
 
         Ok(Json(LatestBlock::LastBlock(Box::new(block))))
     }
